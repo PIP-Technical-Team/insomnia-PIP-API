@@ -1,0 +1,25 @@
+type: environment.insomnia.rest/5.0
+schema_version: "5.1"
+name: 00-LOCAL
+meta:
+  id: wrk_a3f75304cc4740afabf63ba22dbf9062
+  created: 1769614624607
+  modified: 1769614624607
+  description: ""
+environments:
+  name: 00-LOCAL
+  meta:
+    id: env_0e0539c8a8194b6a8ff9622763c77263
+    created: 1763074159873
+    modified: 1763074159873
+    isPrivate: false
+  data:
+    port1: http://127.0.0.1:8080
+    base_server: "{{port1}}/api/v1"
+    base_url_vm: "{{port1}}/api/v1"
+    base_url_vm2: "{{port1}}/api/v1"
+    base_url_vm3: "{{port1}}/api/v1"
+    base_url_gateway: "{{port1}}/api/v1"
+    base_version: 20250930_2021_01_02_PROD
+    ppp_version: "2021"
+    povline: "3"

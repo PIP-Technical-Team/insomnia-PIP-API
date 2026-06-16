@@ -1,0 +1,698 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: 03-pip-performance-testing
+meta:
+  id: wrk_8e374d61785e44ad9981dac27f33f547
+  created: 1769614631029
+  modified: 1769614631029
+  description: ""
+collection:
+  - name: 03-pip-performance-testing
+    meta:
+      id: fld_7a6f2075ed76405485d6ae5c6942266e
+      created: 1763074121340
+      modified: 1763074121340
+      sortKey: -1763074112041
+      description: |-
+        # About this collection
+
+        This collection is designed to help you test the performance of your API endpoints with varying sizes of query parameters. The collection contains pre-built requests that simulate large and small query parameters to assess how well your API handles different loads.
+
+        Using this collection, you can identify potential bottlenecks or performance issues in your API, enabling you to optimize and enhance the overall performance.
+
+        ## **Using the collection**
+
+        **Step 1:** Replace the placeholders in the URLs and parameters with your own API base URLs and relevant query parameters.
+
+        **Step 2 (optional):** Modify the sizes of the query parameters to reflect your specific use case better. You can create multiple requests with varying parameter sizes to test your API's performance thoroughly.
+
+        **Step 3:** Run the collection using Postman's Collection Runner or Postman's Newman CLI tool.
+
+        **Step 4:** Analyze the results to identify performance bottlenecks, slow response times, or potential issues with handling large or small query parameters.
+
+        ## Resources
+
+        [Performance Testing](https://learning.postman.com/docs/designing-and-developing-your-api/testing-your-api/introduction-to-performance-testing/)  
+        [Postman Collection Runner](https://learning.postman.com/docs/running-collections/intro-to-collection-runs/)  
+        [Postman Newman CLI](https://learning.postman.com/docs/running-collections/using-newman-cli/command-line-integration-with-newman/)
+
+        [  
+        ](https://postman.postman.co/documentation/22517504-3302192d-87dd-4612-b381-61894de21203?entity=&branch=&version=)
+    children:
+      - url: "{{base_url_gateway}}/pip"
+        name: pip-single-country-gw
+        meta:
+          id: req_28df7875eff24037ba7380052f80af6e
+          created: 1763074121344
+          modified: 1763074121344
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112040
+        method: GET
+        parameters:
+          - name: country
+            value: COL
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: reporting_level
+            value: all
+            disabled: false
+          - name: fill_gaps
+            value: "FALSE"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 500ms", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(500);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{base_url_gateway}}/pip"
+        name: pip-fg-single-country-gw
+        meta:
+          id: req_42823b24d6fe4df28f46e2861fc7382f
+          created: 1763074121347
+          modified: 1763074121347
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112039
+        method: GET
+        parameters:
+          - name: country
+            value: COL
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: reporting_level
+            value: all
+            disabled: false
+          - name: fill_gaps
+            value: "TRUE"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 800ms", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(800);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{base_url_gateway}}/pip"
+        name: pip-fg-single-country-gw popshare
+        meta:
+          id: req_8571e2b587f243da804333ac5be6a559
+          created: 1763074121351
+          modified: 1763074121351
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112038
+        method: GET
+        parameters:
+          - name: country
+            value: AGO
+            disabled: false
+          - name: year
+            value: "2020"
+            disabled: false
+          - name: ppp_version
+            value: "2021"
+            disabled: false
+          - name: fill_gaps
+            value: "true"
+            disabled: false
+          - name: popshare
+            value: ".4"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 800ms", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(800);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{base_url_vm}}/pip"
+        name: pip-fg-single-country-vm popshare Copy
+        meta:
+          id: req_7aa14c849ebb48aca13a041d743b3711
+          created: 1763074121354
+          modified: 1763074121354
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112037
+        method: GET
+        parameters:
+          - name: country
+            value: AGO
+            disabled: false
+          - name: year
+            value: "2020"
+            disabled: false
+          - name: ppp_version
+            value: "2021"
+            disabled: false
+          - name: fill_gaps
+            value: "true"
+            disabled: false
+          - name: popshare
+            value: ".366"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 800ms", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(800);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{base_url_gateway}}/pip"
+        name: pip-fg-all-countries-gw
+        meta:
+          id: req_bbb01e83e91d485c8b1e144b60f3a6f9
+          created: 1763074121358
+          modified: 1763074121358
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112036
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: reporting_level
+            value: all
+            disabled: false
+          - name: fill_gaps
+            value: "TRUE"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 10s", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(10000);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{_['base_url_gateway']}}/pip-grp"
+        name: pip-grp-all-gw
+        meta:
+          id: req_3cd1e0690e6548ec802b6f8b3367d9c3
+          created: 1763074121361
+          modified: 1763074121361
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112035
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: reporting_level
+            value: all
+            disabled: false
+          - name: fill_gaps
+            value: "TRUE"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 10s", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(10000);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{_['base_url_vm']}}/pc-charts"
+        name: pc-charts-vm
+        meta:
+          id: req_d4dd64645ae94906a5c7961820f5550a
+          created: 1763074121364
+          modified: 1763074121364
+          isPrivate: false
+          description: ""
+          sortKey: -1763074112034
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: ppp_version
+            value: "2017"
+            disabled: false
+          - name: fill_gaps
+            value: "false"
+            disabled: false
+        scripts:
+          afterResponse: "insomnia.test(\"Response time is less than 10s\", function ()
+            {\r
+
+            \    insomnia.expect(insomnia.response.responseTime).to.be.below(10\
+            000);\r
+
+            });"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{_['base_url_gateway']}}/hp-stacked"
+        name: pip-hp-stacked-gw
+        meta:
+          id: req_192eb402a150401f90527a3614fe5485
+          created: 1763074121365
+          modified: 1763074121365
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112033
+        method: GET
+        parameters:
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: ppp_version
+            value: "2017"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 10s", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(10000);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{_['base_url_gateway']}}/hp-stacked"
+        name: pip-hp-stacked-vm
+        meta:
+          id: req_8e8135563a214ee4a4da0fe49c6f4fb1
+          created: 1763074121367
+          modified: 1763074121367
+          isPrivate: false
+          description: >-
+            **Description**  
+
+            This request is designed to test an API endpoint with a small set of
+            query parameters. By sending this request, you can assess how well
+            your API handles simple requests and analyze its response times and
+            performance under a minimal load.
+
+
+            **Request details**  
+
+            URL: [https://postman-echo.com/get](https://postman-echo.com/get)  
+
+            HTTP Method: GET  
+
+            Query Parameters:
+
+
+            - foo1: bar1
+
+            - foo2: bar2
+                
+
+            **Usage**  
+
+            To use this request, simply replace the URL with your own API
+            endpoint and modify the query parameters according to your
+            requirements.
+          sortKey: -1763074112032
+        method: GET
+        parameters:
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: ppp_version
+            value: "2017"
+            disabled: false
+        scripts:
+          afterResponse: >-
+            insomnia.test("Response time is less than 10s", function () {
+                insomnia.expect(insomnia.response.responseTime).to.be.below(10000);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{_['base_url_gateway']}}/pkgs-version"
+        name: pkgs-version-gw
+        meta:
+          id: req_8ca6c415435446ee8bc4dfa76d2175e8
+          created: 1763074121370
+          modified: 1763074121370
+          isPrivate: false
+          description: ""
+          sortKey: -1763074112031
+        method: GET
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{base_url_gateway}}/pip"
+        name: pip-ago-fg-popshare-gw
+        meta:
+          id: req_bc67afd79ec145d79fc5cd4f1577f31a
+          created: 1763074121375
+          modified: 1763074121375
+          isPrivate: false
+          description: ""
+          sortKey: -1763074112030
+        method: GET
+        parameters:
+          - name: country
+            value: AGO
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: ppp_version
+            value: "2021"
+            disabled: false
+          - name: fill_gaps
+            value: "true"
+            disabled: false
+          - name: version
+            value: 20250401_2021_01_02_PROD
+            disabled: false
+          - name: popshare
+            value: ".366"
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{base_url_gateway}}/pip"
+        name: pip-ago-fg-popshare-vm
+        meta:
+          id: req_598a332799d8497a99b777c87dc898bc
+          created: 1763074121379
+          modified: 1763074121379
+          isPrivate: false
+          description: ""
+          sortKey: -1763074112029
+        method: GET
+        parameters:
+          - name: country
+            value: AGO
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: ppp_version
+            value: "2021"
+            disabled: false
+          - name: fill_gaps
+            value: "true"
+            disabled: false
+          - name: version
+            value: 20250401_2021_01_02_PROD
+            disabled: false
+          - name: popshare
+            value: ".366"
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_1a419538351a47c09178e2ad058ca33d
+    created: 1763074121394
+    modified: 1763074121394
+environments:
+  name: Base Environment
+  meta:
+    id: env_0ddc7eaa2788433c84ec940b51083602
+    created: 1763074121383
+    modified: 1763074121383
+    isPrivate: false

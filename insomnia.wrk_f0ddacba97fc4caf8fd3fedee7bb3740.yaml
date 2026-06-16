@@ -1,0 +1,18 @@
+type: environment.insomnia.rest/5.0
+schema_version: "5.1"
+name: env
+meta:
+  id: wrk_f0ddacba97fc4caf8fd3fedee7bb3740
+  created: 1769614634446
+  modified: 1769614634446
+  description: ""
+environments:
+  name: env
+  meta:
+    id: env_7282d4d17bcc41eb9aa702599b070773
+    created: 1763074159088
+    modified: 1763074159088
+    isPrivate: false
+  data:
+    _R_CHECK_LENGTH_1_LOGIC2_: verbose
+    _R_CHECK_LENGTH_1_CONDITION_: "true"
