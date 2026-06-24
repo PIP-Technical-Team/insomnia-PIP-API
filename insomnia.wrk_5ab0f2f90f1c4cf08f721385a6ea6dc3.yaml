@@ -11,7 +11,7 @@ collection:
     meta:
       id: fld_d6977dd9d02e43f4bc615d173de96b6b
       created: 1763074119566
-      modified: 1775762381623
+      modified: 1782329786529
       sortKey: -1763074112034
       description: |-
         # About this collection
@@ -575,7 +575,7 @@ collection:
         meta:
           id: req_83504c2ad96c43699112f7bafee39c68
           created: 1763074119632
-          modified: 1763074119632
+          modified: 1782329782920
           isPrivate: false
           description: >-
             The test on this request asserts that the reponse has a "200 OK"
@@ -588,9 +588,10 @@ collection:
           sortKey: -1763074112015
         method: GET
         scripts:
-          afterResponse: |
-            insomnia.test("Status code is 200", function () {
-                insomnia.response.to.have.status(200);
+          afterResponse: >
+            insomnia.test("Status code is 404. Endpoint not in gateway",
+            function () {
+                insomnia.response.to.have.status(404);
             });
         settings:
           renderRequestBody: true
@@ -2647,72 +2648,8 @@ cookieJar:
   meta:
     id: jar_d6787c1d1f83410da3b3b87da727eb43
     created: 1763074119729
-    modified: 1775762381602
+    modified: 1782329786528
   cookies:
-    - id: 15effb7a-f3d9-445b-8450-452c05889e53
-      key: pipscoreapiqa.worldbank.orgCORS
-      value: 406adaae4cfd0356c485491e650c396c
-      domain: apiv2qa.worldbank.org
-      path: /
-      secure: true
-      httpOnly: false
-      hostOnly: true
-    - id: 20ebd63d-1636-4ebd-ad03-5646a7993844
-      key: pipscoreapiqa.worldbank.org
-      value: 406adaae4cfd0356c485491e650c396c
-      domain: apiv2qa.worldbank.org
-      path: /
-      secure: false
-      httpOnly: false
-      hostOnly: true
-    - id: 0e98d192-44f9-4103-8bb6-fed22a5fce59
-      key: api.worldbank.orgCORS
-      value: 403be8494990e664779c34c52fa19686
-      domain: api.worldbank.org
-      path: /
-      secure: true
-      httpOnly: false
-      hostOnly: true
-    - id: a623470f-3686-4356-94f2-0a50cb55776e
-      key: api.worldbank.org
-      value: 403be8494990e664779c34c52fa19686
-      domain: api.worldbank.org
-      path: /
-      secure: false
-      httpOnly: false
-      hostOnly: true
-    - id: 58ee88f2-78af-4621-bca9-428df799b471
-      key: pipscoreapi.worldbank.orgCORS
-      value: c13e8c4462248a8b1c275dc1f7ad298f
-      domain: api.worldbank.org
-      path: /
-      secure: true
-      httpOnly: false
-      hostOnly: true
-    - id: 9b8c95a5-897c-4e25-ae8b-75c309fdac53
-      key: pipscoreapi.worldbank.org
-      value: c13e8c4462248a8b1c275dc1f7ad298f
-      domain: api.worldbank.org
-      path: /
-      secure: false
-      httpOnly: false
-      hostOnly: true
-    - id: 2a5a632f-4a64-4fb0-b477-d796ff912cfc
-      key: __cf_bm
-      value: ms3eBKEB5l1Yaa5agmp08lA3ArxKCMFiwRc2BH426N8-1775762381-1.0.1.1-guIN.gy8oGgaUuz3nAvcx20n4iET8P0eiijV073ZUnVTRLGYuBL_Vm.eEhwVKA_qMVfHogxgCeFUXfkZxFNHvelorgkhLeNAbn3qJhz3bII
-      domain: worldbank.org
-      path: /
-      secure: true
-      httpOnly: true
-      hostOnly: false
-    - id: 3449d218-4967-47fb-a63f-da1e7ee92da3
-      key: _cfuvid
-      value: COEDz5KdfhI3Y3ELc0cmjLwTduO5rOUhuuB_NtvFxw0-1775762381277-0.0.1.1-604800000
-      domain: worldbank.org
-      path: /
-      secure: true
-      httpOnly: true
-      hostOnly: false
     - id: dd122a92-214a-4d6d-ad8a-c420813cbc37
       key: pipscoreapiqa.worldbank.orgCORS
       value: 406adaae4cfd0356c485491e650c396c
@@ -2780,5 +2717,5 @@ environments:
   meta:
     id: env_4a02e7dd701c4e4595b10e6fb7ffaf7e
     created: 1763074119723
-    modified: 1775762381615
+    modified: 1782329786528
     isPrivate: false
