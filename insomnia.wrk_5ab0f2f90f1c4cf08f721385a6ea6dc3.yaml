@@ -11,7 +11,7 @@ collection:
     meta:
       id: fld_d6977dd9d02e43f4bc615d173de96b6b
       created: 1763074119566
-      modified: 1782329786529
+      modified: 1787858270154
       sortKey: -1763074112034
       description: |-
         # About this collection
@@ -2641,6 +2641,46 @@ collection:
             send: true
             store: true
           rebuildPath: true
+      - url: "{{_['base_url_gateway']}}/pip-grp"
+        name: pip-grp-gw (specific line)
+        meta:
+          id: req_699ffac2204c4d2aad2baf61315379d7
+          created: 1787858093565
+          modified: 1787858181493
+          isPrivate: false
+          description: >-
+            The test on this request asserts that the reponse has a "200 OK"
+            status.
+
+
+            You can check for any HTTP status code using the same mechanism, for
+            example `pm.response.to.have.status(403)` if your API should return
+            an "Unauthorized" response.
+          sortKey: -1763074111982.5
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "3"
+            disabled: false
+        scripts:
+          afterResponse: |
+            insomnia.test("Status code is 200", function () {
+                insomnia.response.to.have.status(200);
+            });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
     environment:
       baseUrl: https://postman-echo.com
 cookieJar:
@@ -2648,7 +2688,7 @@ cookieJar:
   meta:
     id: jar_d6787c1d1f83410da3b3b87da727eb43
     created: 1763074119729
-    modified: 1782329786528
+    modified: 1787858270153
   cookies:
     - id: dd122a92-214a-4d6d-ad8a-c420813cbc37
       key: pipscoreapiqa.worldbank.orgCORS
@@ -2717,5 +2757,5 @@ environments:
   meta:
     id: env_4a02e7dd701c4e4595b10e6fb7ffaf7e
     created: 1763074119723
-    modified: 1782329786528
+    modified: 1787858270153
     isPrivate: false
