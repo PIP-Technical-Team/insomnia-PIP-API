@@ -11,7 +11,7 @@ collection:
     meta:
       id: fld_d6977dd9d02e43f4bc615d173de96b6b
       created: 1763074119566
-      modified: 1787858270154
+      modified: 1788278926507
       sortKey: -1763074112034
       description: |-
         # About this collection
@@ -2258,60 +2258,11 @@ collection:
             store: true
           rebuildPath: true
       - url: "{{base_url_vm}}/pip"
-        name: VINTAGE 20250930_2017_01_02_PROD- pip-vm
-        meta:
-          id: req_de3fc815c1054c0da296bcaeacb5e5d4
-          created: 1763074119709
-          modified: 1774019665226
-          isPrivate: false
-          description: >-
-            The test on this request asserts that the reponse has a "200 OK"
-            status.
-
-
-            You can check for any HTTP status code using the same mechanism, for
-            example `pm.response.to.have.status(403)` if your API should return
-            an "Unauthorized" response.
-          sortKey: -1763074111978
-        method: GET
-        parameters:
-          - name: country
-            value: ALB
-            disabled: false
-          - name: year
-            value: "2018"
-            disabled: false
-          - name: povline
-            value: "2.15"
-            disabled: false
-          - name: fill_gaps
-            value: "false"
-            disabled: false
-          - name: additional_ind
-            value: "false"
-            disabled: false
-          - name: version
-            value: 20250930_2017_01_02_PROD
-            disabled: false
-        scripts:
-          afterResponse: |
-            insomnia.test("Status code is 200", function () {
-                insomnia.response.to.have.status(200);
-            });
-        settings:
-          renderRequestBody: true
-          encodeUrl: true
-          followRedirects: global
-          cookies:
-            send: true
-            store: true
-          rebuildPath: true
-      - url: "{{base_url_vm}}/pip"
-        name: VINTAGE 20250930_2021_01_02_PROD- pip-vm
+        name: pip-vm -- Vintage version
         meta:
           id: req_c7d19d1af44a4027ae9ed8e35a5a8293
           created: 1763074119711
-          modified: 1774019682829
+          modified: 1787858429237
           isPrivate: false
           description: >-
             The test on this request asserts that the reponse has a "200 OK"
@@ -2360,7 +2311,7 @@ collection:
         meta:
           id: req_28f2e7eaf07e4b01b213e1f82ebd519c
           created: 1763074119712
-          modified: 1774019793425
+          modified: 1787858422637
           isPrivate: false
           description: >-
             The test on this request asserts that the reponse has a "200 OK"
@@ -2584,7 +2535,7 @@ collection:
         meta:
           id: req_ae505e68140942c6b9b666f032bf07cc
           created: 1775488492722
-          modified: 1775488793988
+          modified: 1788278681198
           isPrivate: false
           description: ""
           sortKey: -1769043243650.25
@@ -2616,7 +2567,7 @@ collection:
         meta:
           id: req_31cfe1a1530f4936a36ae215a72e1691
           created: 1775488548790
-          modified: 1775488680048
+          modified: 1788278672021
           isPrivate: false
           description: ""
           sortKey: -1775012375267.5
@@ -2646,7 +2597,7 @@ collection:
         meta:
           id: req_699ffac2204c4d2aad2baf61315379d7
           created: 1787858093565
-          modified: 1787858181493
+          modified: 1787858454279
           isPrivate: false
           description: >-
             The test on this request asserts that the reponse has a "200 OK"
@@ -2666,13 +2617,31 @@ collection:
             value: all
             disabled: false
           - name: povline
-            value: "3"
+            value: "28"
             disabled: false
         scripts:
           afterResponse: |
             insomnia.test("Status code is 200", function () {
                 insomnia.response.to.have.status(200);
             });
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{_['base_url_gateway']}}/ui_version_id"
+        name: ui_version_id
+        meta:
+          id: req_cfa44f7cdac4477b90001f86b215b592
+          created: 1788278656001
+          modified: 1788278751349
+          isPrivate: false
+          description: ""
+          sortKey: -1788278656001
+        method: GET
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -2688,7 +2657,7 @@ cookieJar:
   meta:
     id: jar_d6787c1d1f83410da3b3b87da727eb43
     created: 1763074119729
-    modified: 1787858270153
+    modified: 1788278926506
   cookies:
     - id: dd122a92-214a-4d6d-ad8a-c420813cbc37
       key: pipscoreapiqa.worldbank.orgCORS
@@ -2757,5 +2726,5 @@ environments:
   meta:
     id: env_4a02e7dd701c4e4595b10e6fb7ffaf7e
     created: 1763074119723
-    modified: 1787858270153
+    modified: 1788278926506
     isPrivate: false
