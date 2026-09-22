@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import itertools
 import json
 import sys
 import time
@@ -42,8 +43,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scenario",
         choices=tuple(SCENARIOS),
-        default="pip",
+        default=None,
         help="Named cache scenario to build (default: pip)",
+    )
+    parser.add_argument(
+        "--country",
+        action="append",
+        default=[],
+        help="Country code for page scenarios. Repeat for more countries.",
+    )
+    parser.add_argument(
+        "--povline",
+        action="append",
+        default=[],
+        help="Poverty line for page scenarios. Repeat for more poverty lines.",
     )
     parser.add_argument(
         "--url",
@@ -79,6 +92,17 @@ def parse_args() -> argparse.Namespace:
         parser.error("use either --url or --base-url, not both")
     if not args.url and not args.base_url:
         parser.error("--base-url is required unless --url is used")
+    if args.url and args.scenario is not None:
+        parser.error("--scenario cannot be used with --url")
+    if args.url and (args.country or args.povline):
+        parser.error("--country and --povline cannot be used with --url")
+    args.scenario = args.scenario or "pip"
+    if args.scenario == "pip" and (args.country or args.povline):
+        parser.error("--country and --povline apply only to page scenarios")
+    if args.scenario in PAGE_SCENARIOS and (not args.country or not args.povline):
+        parser.error(
+            f"--scenario {args.scenario} requires at least one --country and --povline"
+        )
 
     return args
 
@@ -120,6 +144,19 @@ def exact_url(value: str) -> str:
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ValueError("--url values must be complete HTTP or HTTPS URLs")
     return url
+
+
+def unique_values(values: list[str], option: str) -> list[str]:
+    unique: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        item = value.strip()
+        if not item:
+            raise ValueError(f"{option} values must not be empty")
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+    return unique
 
 
 def get_json(url: str, timeout: float) -> Any:
@@ -251,9 +288,100 @@ def build_pip_plan(base_url: str, timeout: float) -> WarmPlan:
     return WarmPlan(requests=requests, verify=verify_versions)
 
 
-SCENARIOS: dict[str, Callable[[str, float], WarmPlan]] = {
-    "pip": build_pip_plan,
+def json_request(
+    base_url: str,
+    path: str,
+    parameters: tuple[tuple[str, str], ...] = (),
+) -> WarmRequest:
+    query = f"?{urlencode(parameters)}" if parameters else ""
+    label_parameters = " ".join(f"{key}={value}" for key, value in parameters)
+    label = path.lstrip("/")
+    if label_parameters:
+        label = f"{label} {label_parameters}"
+    return WarmRequest(
+        url=f"{base_url}{path}{query}",
+        label=label,
+        response_format="json",
+    )
+
+
+PAGE_ENDPOINTS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    "homepage": (
+        ("/hp-stacked", ("povline",)),
+        ("/hp-countries", ("country", "povline")),
+        ("/decomposition-vars", ()),
+        ("/poverty-lines", ()),
+        ("/indicators", ()),
+    ),
+    "country-profile": (
+        ("/cp-download", ("country", "povline", "format")),
+        ("/cp-key-indicators", ("country", "povline")),
+        ("/cp-charts", ("country", "povline")),
+    ),
 }
+
+SCENARIOS = ("pip", "homepage", "country-profile", "pages", "all")
+PAGE_SCENARIOS = {"homepage", "country-profile", "pages", "all"}
+
+
+def page_requests(
+    base_url: str,
+    groups: tuple[str, ...],
+    countries: list[str],
+    poverty_lines: list[str],
+) -> list[WarmRequest]:
+    parameter_values = {
+        "country": countries,
+        "povline": poverty_lines,
+        "format": ["json"],
+    }
+    requests: list[WarmRequest] = []
+    for group in groups:
+        for path, parameter_names in PAGE_ENDPOINTS[group]:
+            combinations = itertools.product(
+                *(parameter_values[name] for name in parameter_names)
+            )
+            for values in combinations:
+                requests.append(
+                    json_request(base_url, path, tuple(zip(parameter_names, values)))
+                )
+    return requests
+
+
+def build_scenario_plan(
+    scenario: str,
+    base_url: str,
+    timeout: float,
+    countries: list[str],
+    poverty_lines: list[str],
+) -> WarmPlan:
+    requests: list[WarmRequest] = []
+    verify: Optional[Callable[[], None]] = None
+
+    if scenario in ("pip", "all"):
+        pip_plan = build_pip_plan(base_url, timeout)
+        requests.extend(pip_plan.requests)
+        verify = pip_plan.verify
+
+    groups: tuple[str, ...] = ()
+    if scenario in ("homepage", "pages", "all"):
+        groups += ("homepage",)
+    if scenario in ("country-profile", "pages", "all"):
+        groups += ("country-profile",)
+    requests.extend(page_requests(base_url, groups, countries, poverty_lines))
+
+    if verify is None:
+        initial_snapshot = version_snapshot(latest_prod_versions(base_url, timeout))
+
+        def verify_versions() -> None:
+            final_snapshot = version_snapshot(latest_prod_versions(base_url, timeout))
+            if final_snapshot != initial_snapshot:
+                raise ValueError("the selected PROD versions changed during the run")
+
+        verify = verify_versions
+
+    unique_requests = list({request.url: request for request in requests}.values())
+    return WarmPlan(requests=unique_requests, verify=verify)
 
 
 def send_request(item: WarmRequest, timeout: float) -> tuple[int, int, float]:
@@ -322,7 +450,15 @@ def main() -> int:
             )
         else:
             base_url = normalized_base_url(args.base_url)
-            plan = SCENARIOS[args.scenario](base_url, args.timeout)
+            countries = unique_values(args.country, "--country")
+            poverty_lines = unique_values(args.povline, "--povline")
+            plan = build_scenario_plan(
+                args.scenario,
+                base_url,
+                args.timeout,
+                countries,
+                poverty_lines,
+            )
     except (
         HTTPError,
         URLError,

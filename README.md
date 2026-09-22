@@ -160,6 +160,17 @@ The `pip` scenario dynamically performs these steps:
 3. Uses each canonical poverty-line `name` exactly as the API returns it.
 4. Sends one JSON request and one CSV request for every PPP year and poverty line.
 
+Other scenarios cover the page endpoints already defined in the Insomnia collection:
+
+| Scenario | Endpoints |
+| --- | --- |
+| `homepage` | `/hp-stacked`, `/hp-countries`, `/decomposition-vars`, `/poverty-lines`, `/indicators` |
+| `country-profile` | `/cp-download` with JSON format, `/cp-key-indicators`, `/cp-charts` |
+| `pages` | All Homepage and Country Profiles endpoints |
+| `all` | The dynamic `/pip` matrix plus all Homepage and Country Profiles endpoints |
+
+Page scenarios are bounded. They require at least one explicit `--country` and `--povline`. Repeat either option to add values. The script creates every requested country and poverty-line combination. It never assumes `country=all` for these endpoints.
+
 The warmed `/pip` URL contains only these gateway cache-key parameters:
 
 ```text
@@ -203,7 +214,7 @@ Windows PowerShell:
 py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --limit 2 --execute
 ```
 
-### 3. Warm The Complete Cache Matrix
+### 3. Warm The Complete `/pip` Cache Matrix
 
 Remove `--limit` only after the two-request test succeeds and ITS confirms the gateway reset:
 
@@ -220,6 +231,41 @@ Windows PowerShell:
 ```powershell
 py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --delay-ms 250 --timeout 180 --execute
 ```
+
+### Warm Homepage And Country Profiles
+
+Preview all eight page request shapes for one country and poverty line:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario pages \
+  --country AGO \
+  --povline 3
+```
+
+Add `--execute` after reviewing the printed URLs. To include more values, repeat the options:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario pages \
+  --country AGO \
+  --country IDN \
+  --povline 3 \
+  --povline 6.55 \
+  --execute
+```
+
+This example warms both countries at both poverty lines. The three global Homepage reference endpoints are sent only once.
+
+On Windows PowerShell, use one line:
+
+```powershell
+py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --scenario pages --country AGO --povline 3 --execute
+```
+
+Use `--scenario all` with the same `--country` and `--povline` options when one run must include `/pip`, Homepage, and Country Profiles. The dynamic `/pip` matrix can make this a large run. Preview with `--limit 10`, review the `Prepared` count, and remove the limit only after the limited run succeeds.
 
 The script continues after an individual request failure and exits with status `1` if any request failed. It reads each complete response so that the gateway can cache it, but it does not save response bodies or create manifests.
 
@@ -247,7 +293,7 @@ On Windows PowerShell, use the same options after `py -3 scripts/warm_pip_cache.
 
 ### Add A Reusable Endpoint Scenario
 
-For a repeated endpoint matrix, add one request-builder function to `scripts/warm_pip_cache.py`, then register it in `SCENARIOS`. The builder must return the exact URLs used by the real client. Do not guess optional parameters because every different parameter set can create a different gateway cache entry.
+For another bounded page endpoint, add its path and ordered parameter names to `PAGE_ENDPOINTS` in `scripts/warm_pip_cache.py`. Add custom discovery logic to `build_scenario_plan` only when the endpoint matrix cannot be expressed with explicit countries and poverty lines. Use the exact URLs sent by the real client. Do not guess optional parameters because every different parameter set can create a different gateway cache entry.
 
 Use the Insomnia `30 Caching` request only for optional graphical inspection. The Python script is the primary cache-warming method.
 
