@@ -46,7 +46,7 @@ collection:
               }
             });
 
-            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "health-check", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "health-check", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -74,14 +74,14 @@ collection:
             const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
             const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
             const text = insomnia.response.text().trim();
-            const body = insomnia.response.json();
             insomnia.test("Versions response contains data", () => {
+              const body = insomnia.response.json();
               insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
               insomnia.expect(body).to.be.an("array").and.not.to.be.empty;
               insomnia.expect(body[0]).to.include.all.keys("version", "release_version", "ppp_version", "identity");
             });
 
-            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "versions", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "versions", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -125,15 +125,15 @@ collection:
             const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
             const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
             const text = insomnia.response.text().trim();
-            const body = insomnia.response.json();
             insomnia.test("JSON response contains data", () => {
+              const body = insomnia.response.json();
               insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
               insomnia.expect(body).to.be.an("array").and.not.to.be.empty;
               insomnia.expect(body[0].error).to.equal(undefined);
               insomnia.expect(body[0]).to.include.all.keys("country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean");
             });
 
-            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-bounded", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-bounded", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -185,7 +185,7 @@ collection:
               insomnia.expect(headers).to.include.members(["country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean"]);
             });
 
-            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-bounded", format: "csv", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-bounded", format: "csv", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -229,15 +229,15 @@ collection:
             const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
             const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
             const text = insomnia.response.text().trim();
-            const body = insomnia.response.json();
             insomnia.test("JSON response contains data", () => {
+              const body = insomnia.response.json();
               insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
               insomnia.expect(body).to.be.an("array").and.not.to.be.empty;
               insomnia.expect(body[0].error).to.equal(undefined);
               insomnia.expect(body[0]).to.include.all.keys("country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean");
             });
 
-            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-all", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-all", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -289,7 +289,7 @@ collection:
               insomnia.expect(headers).to.include.members(["country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean"]);
             });
 
-            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-all", format: "csv", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-all", format: "csv", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -375,7 +375,7 @@ collection:
               });
             }
 
-            console.log("PIP_CACHE_WARM_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), povline, pppVersion, format, releaseVersion, resolvedVersion, responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+            console.log("PIP_CACHE_WARM_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), povline, pppVersion, format, releaseVersion, resolvedVersion, responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: insomnia.response.size().body, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
         settings:
           renderRequestBody: true
           encodeUrl: true
