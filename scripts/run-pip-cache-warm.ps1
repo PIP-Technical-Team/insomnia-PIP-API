@@ -216,7 +216,12 @@ function Write-JsonFile {
         [switch]$Compress
     )
 
-    $jsonValue = if ($AsArray) { @($Value) } else { $Value }
+    if ($AsArray) {
+        $jsonValue = @($Value)
+    }
+    else {
+        $jsonValue = $Value
+    }
     $json = ConvertTo-Json -InputObject $jsonValue -Depth 10 -Compress:$Compress
     $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
     [IO.File]::WriteAllText($Path, $json + [Environment]::NewLine, $utf8WithoutBom)
@@ -227,6 +232,9 @@ if ($GenerateOnly -and $Execute) {
 }
 
 $target = Get-Target $Environment
+if ($target.Name -notlike "* - Gateway") {
+    throw "Cache warming supports gateway environments only. '$($target.Name)' is a direct API target and cannot warm the gateway cache."
+}
 $normalizedBaseUrl = Get-NormalizedBaseUrl $BaseUrl
 $knownBaseUrl = Get-NormalizedBaseUrl $target.BaseUrl
 if (-not [StringComparer]::OrdinalIgnoreCase.Equals($normalizedBaseUrl, $knownBaseUrl)) {
@@ -389,6 +397,7 @@ $arguments = @(
     "--delay-request", [string]$DelayMs,
     "--requestTimeout", [string]$RequestTimeoutMs,
     "--output", $resultPath,
+    "--acceptRisk",
     $workspaceId
 )
 
@@ -396,6 +405,7 @@ Write-Host "Running cache warming for $($target.Name)..."
 $insoExitCode = 1
 $insoError = $null
 try {
+    $LASTEXITCODE = 0
     & $insoCommand.Source @arguments
     $insoExitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
 }

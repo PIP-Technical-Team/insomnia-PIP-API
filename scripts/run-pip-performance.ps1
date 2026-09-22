@@ -20,7 +20,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $workspaceId = "wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3"
-$performanceFolderId = "fld_20a4f3e6b9784d1c8ea10fbe6729a501"
+$performanceFolderId = "fld_6a64aef00f954f85be9f6dd61a0080a1"
 $collectionFile = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\insomnia.wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3.yaml")).Path
 $expectedRequestsPerRun = 6
 
@@ -331,31 +331,44 @@ $raw = [ordered]@{
     generated_utc = (Get-Date).ToUniversalTime().ToString("o")
     inso_version = $insoVersion
     settings = [ordered]@{
+        workspace_id = $workspaceId
+        performance_folder_id = $performanceFolderId
+        collection_file = $collectionFile
         warm_iterations = $WarmIterations
         delay_ms = $DelayMs
         request_timeout_ms = $RequestTimeoutMs
-        request_order = @($selectedTargets | ForEach-Object { $_.Name })
+        sequential = $true
+        target_order = @($selectedTargets | ForEach-Object { $_.Name })
     }
-    resolved_versions = $referenceSnapshot
-    runs = $runRecords
+    targets = @($selectedTargets | ForEach-Object {
+        [ordered]@{
+            name = $_.Name
+            environment_id = $_.Id
+            base_url = $_.BaseUrl
+            resolved_versions = @($versionSnapshots[$_.Id])
+        }
+    })
+    runs = @($runRecords | Select-Object target, environment_id, base_url, phase, iteration, inso_output, console_output, exit_code, expected_request_records, captured_request_records, capture_complete)
     request_events = $events
 }
 Write-JsonFile $rawPath $raw
 
-$summary = foreach ($group in ($events | Where-Object { $null -ne $_.response_time_ms } | Group-Object target, endpoint, format, phase)) {
-    $samples = @($group.Group | ForEach-Object { [double]$_.response_time_ms })
+$summary = foreach ($group in ($events | Group-Object target, endpoint, format, phase)) {
+    $samples = @($group.Group | Where-Object { $null -ne $_.response_time_ms } | ForEach-Object { [double]$_.response_time_ms })
+    $minimum = if ($samples.Count -eq 0) { $null } else { [double](($samples | Measure-Object -Minimum).Minimum) }
+    $maximum = if ($samples.Count -eq 0) { $null } else { [double](($samples | Measure-Object -Maximum).Maximum) }
     [pscustomobject]@{
         target = $group.Group[0].target
         endpoint = $group.Group[0].endpoint
         format = $group.Group[0].format
         phase = $group.Group[0].phase
-        count = $samples.Count
+        count = $group.Count
         errors = @($group.Group | Where-Object { $_.error }).Count
-        min_ms = [double](($samples | Measure-Object -Minimum).Minimum)
-        median_ms = Get-Percentile $samples 0.5
+        min_ms = $minimum
+        p50_ms = Get-Percentile $samples 0.5
         p90_ms = Get-Percentile $samples 0.9
         p95_ms = Get-Percentile $samples 0.95
-        max_ms = [double](($samples | Measure-Object -Maximum).Maximum)
+        max_ms = $maximum
     }
 }
 
@@ -366,11 +379,14 @@ Write-Host "Raw results: $rawPath"
 Write-Host "Summary CSV: $csvPath"
 Write-Host "Summary JSON: $summaryPath"
 if ($events.Count -eq 0) {
-    throw "Inso did not emit parseable performance console records. Raw Inso and console artifacts were saved, but no latency summary was produced."
+    Write-Warning "Inso did not emit parseable performance console records. Raw Inso and console artifacts were saved, but no latency summary was produced."
 }
-elseif ($events.Count -ne ($runRecords.Count * 6)) {
-    throw "Inso reported $($events.Count) performance request records; expected $($runRecords.Count * 6). Review '$rawPath'."
+elseif ($events.Count -ne ($runRecords.Count * $expectedRequestsPerRun)) {
+    Write-Warning "Inso reported $($events.Count) performance request records; expected $($runRecords.Count * $expectedRequestsPerRun). Review '$rawPath'."
 }
 if ($failedRuns.Count -gt 0) {
-    throw "$($failedRuns.Count) performance run(s) failed. Review '$rawPath'."
+    Write-Error "$($failedRuns.Count) performance run(s) failed or emitted incomplete request records. Review '$rawPath'." -ErrorAction Continue
+    exit 1
 }
+
+exit 0
