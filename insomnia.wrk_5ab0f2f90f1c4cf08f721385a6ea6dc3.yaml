@@ -9,6 +9,381 @@ meta:
     routes. It automates 35 routes and keeps cache-get manual. Destructive cache
     routes are intentionally absent.
 collection:
+  - name: 20 Performance
+    meta:
+      id: fld_20a4f3e6b9784d1c8ea10fbe6729a501
+      created: 1790087621210
+      modified: 1790087621210
+      sortKey: -1788297476930
+      description: Manual sequential end-to-end latency samples. Do not include this folder in Smoke or Full runs. The all-country requests are expensive.
+    children:
+      - url: "{{base_url}}/health-check"
+        name: GET /health-check - performance baseline
+        meta:
+          id: req_74d7d5449da54e43a1713d2a29f5c15d
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual performance request. Lightweight path and network baseline. Run only through the performance runner or a deliberately selected Collection Runner scope.
+          sortKey: -1788297476930.6
+        method: GET
+        scripts:
+          afterResponse: >
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const text = insomnia.response.text().trim();
+            insomnia.test("Response is non-empty JSON", () => {
+              insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+              insomnia.expect(text).not.to.be.empty;
+              const body = insomnia.response.json();
+              insomnia.expect(body && body.error).to.equal(undefined);
+              if (body && !Array.isArray(body) && typeof body === "object") {
+                insomnia.expect(body.ok).not.to.equal(false);
+              }
+            });
+
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "health-check", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
+      - url: "{{base_url}}/versions"
+        name: GET /versions - performance metadata
+        meta:
+          id: req_7439d691473d4fbe8d2873213d91b00c
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual performance request. Small metadata response used to separate network latency from large PIP responses.
+          sortKey: -1788297476930.5
+        method: GET
+        scripts:
+          afterResponse: >
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const text = insomnia.response.text().trim();
+            const body = insomnia.response.json();
+            insomnia.test("Versions response contains data", () => {
+              insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+              insomnia.expect(body).to.be.an("array").and.not.to.be.empty;
+              insomnia.expect(body[0]).to.include.all.keys("version", "release_version", "ppp_version", "identity");
+            });
+
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "versions", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
+      - url: "{{base_url}}/pip"
+        name: GET /pip - bounded JSON performance
+        meta:
+          id: req_330e45807d204cc389d0bed1d36c5979
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual performance request. Bounded national JSON response. Keep request settings fixed when targets are compared.
+          sortKey: -1788297476930.4
+        method: GET
+        parameters:
+          - name: country
+            value: "{{test_country}}"
+            disabled: false
+          - name: year
+            value: "{{test_survey_year}}"
+            disabled: false
+          - name: povline
+            value: "{{test_poverty_line}}"
+            disabled: false
+          - name: reporting_level
+            value: national
+            disabled: false
+          - name: format
+            value: json
+            disabled: false
+        scripts:
+          afterResponse: >
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const text = insomnia.response.text().trim();
+            const body = insomnia.response.json();
+            insomnia.test("JSON response contains data", () => {
+              insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+              insomnia.expect(body).to.be.an("array").and.not.to.be.empty;
+              insomnia.expect(body[0].error).to.equal(undefined);
+              insomnia.expect(body[0]).to.include.all.keys("country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean");
+            });
+
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-bounded", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
+      - url: "{{base_url}}/pip"
+        name: GET /pip - bounded CSV performance
+        meta:
+          id: req_4b927325e6244721aa4aa1555f124259
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual performance request. Bounded national CSV response. Keep request settings fixed when targets are compared.
+          sortKey: -1788297476930.3
+        method: GET
+        parameters:
+          - name: country
+            value: "{{test_country}}"
+            disabled: false
+          - name: year
+            value: "{{test_survey_year}}"
+            disabled: false
+          - name: povline
+            value: "{{test_poverty_line}}"
+            disabled: false
+          - name: reporting_level
+            value: national
+            disabled: false
+          - name: format
+            value: csv
+            disabled: false
+        scripts:
+          afterResponse: >
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const text = insomnia.response.text().trim();
+            const lines = text.split(/\r?\n/);
+            const headers = lines[0].replace(/"/g, "").split(",");
+            insomnia.test("CSV response contains a data row", () => {
+              insomnia.expect(contentType.toLowerCase()).to.match(/^text\/csv/);
+              insomnia.expect(lines.length).to.be.greaterThan(1);
+              insomnia.expect(headers).to.include.members(["country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean"]);
+            });
+
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-bounded", format: "csv", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
+      - url: "{{base_url}}/pip"
+        name: GET /pip - all-country JSON performance
+        meta:
+          id: req_617b9edba00b4a7bb70052cf8c3a94a9
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual performance request. Expensive all-country and all-year JSON response. Do not include in normal contract runs.
+          sortKey: -1788297476930.2
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{test_poverty_line}}"
+            disabled: false
+          - name: ppp_version
+            value: "{{test_ppp_year}}"
+            disabled: false
+          - name: format
+            value: json
+            disabled: false
+        scripts:
+          afterResponse: >
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const text = insomnia.response.text().trim();
+            const body = insomnia.response.json();
+            insomnia.test("JSON response contains data", () => {
+              insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+              insomnia.expect(body).to.be.an("array").and.not.to.be.empty;
+              insomnia.expect(body[0].error).to.equal(undefined);
+              insomnia.expect(body[0]).to.include.all.keys("country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean");
+            });
+
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-all", format: "json", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
+      - url: "{{base_url}}/pip"
+        name: GET /pip - all-country CSV performance
+        meta:
+          id: req_8f0f72fc288846a3b4213c8c88328021
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual performance request. Expensive all-country and all-year CSV response. Do not include in normal contract runs.
+          sortKey: -1788297476930.1
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{test_poverty_line}}"
+            disabled: false
+          - name: ppp_version
+            value: "{{test_ppp_year}}"
+            disabled: false
+          - name: format
+            value: csv
+            disabled: false
+        scripts:
+          afterResponse: >
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const text = insomnia.response.text().trim();
+            const lines = text.split(/\r?\n/);
+            const headers = lines[0].replace(/"/g, "").split(",");
+            insomnia.test("CSV response contains a data row", () => {
+              insomnia.expect(contentType.toLowerCase()).to.match(/^text\/csv/);
+              insomnia.expect(lines.length).to.be.greaterThan(1);
+              insomnia.expect(headers).to.include.members(["country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean"]);
+            });
+
+            console.log("PIP_PERFORMANCE_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), endpoint: "pip-all", format: "csv", responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
+  - name: 30 Caching
+    meta:
+      id: fld_59d50fef4e7b49d69293f3e839f20d4a
+      created: 1790087621210
+      modified: 1790087621210
+      sortKey: -1788297476929
+      description: Manual gateway cache warming only. Run after the new release is healthy and ITS confirms the gateway cache reset.
+    children:
+      - url: "{{base_url}}/pip"
+        name: Warm GET /pip - all country and year
+        meta:
+          id: req_b5d107e4c8394a62bf1e7530d8962ca4
+          created: 1790087621210
+          modified: 1790087621210
+          isPrivate: false
+          description: Manual cache warmer. Iteration data supplies canonical poverty-line, PPP year, and format values. This is expensive and must not run as part of Smoke or Full.
+          sortKey: -1788297476929.6
+        method: GET
+        parameters:
+          - name: country
+            value: all
+            disabled: false
+          - name: year
+            value: all
+            disabled: false
+          - name: povline
+            value: "{{povline}}"
+            disabled: false
+          - name: ppp_version
+            value: "{{ppp_version}}"
+            disabled: false
+          - name: format
+            value: "{{format}}"
+            disabled: false
+        scripts:
+          afterResponse: >
+            const format = insomnia.iterationData.get("format");
+            const povline = insomnia.iterationData.get("povline");
+            const pppVersion = insomnia.iterationData.get("ppp_version");
+            const resolvedVersion = insomnia.iterationData.get("resolved_version");
+            const releaseVersion = insomnia.iterationData.get("release_version");
+            const cacheHeader = insomnia.response.headers.find(header => header.key.toLowerCase() === "x-pipapi-cache");
+            const contentType = (insomnia.response.headers.find(header => header.key.toLowerCase() === "content-type") || {}).value || "";
+            const text = insomnia.response.text().trim();
+
+            insomnia.test("Status is 200", () => {
+              insomnia.expect(insomnia.response.code).to.equal(200);
+            });
+
+            insomnia.test("Response body is not empty", () => {
+              insomnia.expect(text).not.to.be.empty;
+            });
+
+            if (format === "json") {
+              insomnia.test("JSON cache-warm response is valid and has data", () => {
+                insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+                const body = insomnia.response.json();
+                insomnia.expect(body && body.error).to.equal(undefined);
+                if (Array.isArray(body)) {
+                  insomnia.expect(body).not.to.be.empty;
+                } else {
+                  insomnia.expect(body).to.be.an("object");
+                  insomnia.expect(Object.keys(body)).not.to.be.empty;
+                  insomnia.expect(body.ok).not.to.equal(false);
+                }
+              });
+            } else {
+              insomnia.test("CSV cache-warm response is valid and has data", () => {
+                const lines = text.split(/\r?\n/);
+                const headers = lines[0].replace(/"/g, "").split(",");
+                insomnia.expect(format).to.equal("csv");
+                insomnia.expect(contentType.toLowerCase()).to.match(/^text\/csv/);
+                insomnia.expect(lines.length).to.be.greaterThan(1);
+                insomnia.expect(headers).to.include.members(["country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean"]);
+              });
+            }
+
+            console.log("PIP_CACHE_WARM_RESULT " + JSON.stringify({ timestampUtc: new Date().toISOString(), povline, pppVersion, format, releaseVersion, resolvedVersion, responseTime: insomnia.response.responseTime, status: insomnia.response.code, responseSize: text.length, pipapiCache: cacheHeader ? cacheHeader.value : null, gatewayCacheSignal: null }));
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: false
+            store: false
+          rebuildPath: true
   - name: 90 Manual Requests
     meta:
       id: fld_1d58652b5b9b4f31be2deac28e3e600f
