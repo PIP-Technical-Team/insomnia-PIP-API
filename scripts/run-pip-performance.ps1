@@ -13,16 +13,17 @@ param(
     [ValidateRange(1000, 900000)]
     [int]$RequestTimeoutMs = 180000,
 
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\results\performance")
+    [string]$OutputDirectory = (Join-Path (Join-Path $PSScriptRoot "..") (Join-Path "results" "performance"))
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $workspaceId = "wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3"
-$performanceFolderId = "fld_6a64aef00f954f85be9f6dd61a0080a1"
+$performanceFolderId = "fld_20a4f3e6b9784d1c8ea10fbe6729a501"
 $collectionFile = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\insomnia.wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3.yaml")).Path
 $expectedRequestsPerRun = 6
+$requestTimeoutSeconds = [int][Math]::Ceiling($RequestTimeoutMs / 1000.0)
 
 $targets = @(
     [pscustomobject]@{ Name = "Local"; Id = "env_1aa0ac83930048d2ae39983fd194ff23"; BaseUrl = "http://127.0.0.1:8080/api/v1"; IsGateway = $false }
@@ -87,7 +88,7 @@ function Get-TargetVersionSnapshot {
     param([string]$BaseUrl)
 
     try {
-        $versions = Get-ArrayResponse (Invoke-RestMethod -Method Get -Uri "$BaseUrl/versions" -Headers @{ Accept = "application/json" })
+        $versions = Get-ArrayResponse (Invoke-RestMethod -Method Get -Uri "$BaseUrl/versions" -Headers @{ Accept = "application/json" } -TimeoutSec $requestTimeoutSeconds)
     }
     catch {
         throw "Version discovery failed at '$BaseUrl/versions': $($_.Exception.Message)"
@@ -125,7 +126,9 @@ function Get-Percentile {
 function Write-JsonFile {
     param([string]$Path, $Value)
 
-    ConvertTo-Json -InputObject $Value -Depth 10 | Set-Content -LiteralPath $Path -Encoding UTF8
+    $json = ConvertTo-Json -InputObject $Value -Depth 10
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText($Path, $json + [Environment]::NewLine, $utf8WithoutBom)
 }
 
 function Get-RecordValue {
@@ -172,7 +175,7 @@ function Get-PerformanceEvents {
             $reportedError = Get-RecordValue $record @("error", "failed")
             $status = if ($null -eq $statusValue) { $null } else { [int]$statusValue }
             $responseTime = if ($null -eq $responseTimeValue) { $null } else { [double]$responseTimeValue }
-            $isError = ($null -eq $status -or $status -lt 200 -or $status -gt 299)
+            $isError = ($null -eq $status -or $status -lt 200 -or $status -gt 299 -or $null -eq $responseTime)
             if ($reportedError -is [bool]) {
                 $isError = $isError -or $reportedError
             }
@@ -195,7 +198,7 @@ function Get-PerformanceEvents {
                 http_status = $status
                 error = $isError
                 response_time_ms = $responseTime
-                response_size_bytes = Get-RecordValue $record @("responseSize", "responseSizeBytes", "response_size_bytes")
+                response_size = Get-RecordValue $record @("responseSize", "responseSizeBytes", "response_size_bytes")
                 resolved_versions = @($VersionSnapshot)
                 pipapi_cache = Get-RecordValue $record @("pipapiCache", "pipapi_cache")
                 gateway_cache_signal = Get-RecordValue $record @("gatewayCacheSignal", "gateway_cache_signal")
@@ -232,7 +235,6 @@ function Invoke-PerformanceRun {
         "--delay-request", $DelayMs,
         "--requestTimeout", $RequestTimeoutMs,
         "--output", $insoOutputPath,
-        "--acceptRisk",
         $workspaceId
     )
 
@@ -288,6 +290,9 @@ if (-not (Test-Path -LiteralPath $OutputDirectory)) {
 $OutputDirectory = (Resolve-Path -LiteralPath $OutputDirectory).Path
 
 $selectedTargets = @($Environment | ForEach-Object { Get-Target $_ })
+if ($selectedTargets.Count -eq 0) {
+    throw "Specify at least one existing collection environment name or ID."
+}
 if (@($selectedTargets | Group-Object Id | Where-Object { $_.Count -gt 1 }).Count -gt 0) {
     throw "Each environment can be specified only once."
 }
@@ -372,7 +377,13 @@ $summary = foreach ($group in ($events | Group-Object target, endpoint, format, 
     }
 }
 
-@($summary) | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
+if (@($summary).Count -gt 0) {
+    @($summary) | Export-Csv -LiteralPath $csvPath -NoTypeInformation -Encoding UTF8
+}
+else {
+    '"target","endpoint","format","phase","count","errors","min_ms","p50_ms","p90_ms","p95_ms","max_ms"' |
+        Set-Content -LiteralPath $csvPath -Encoding UTF8
+}
 Write-JsonFile $summaryPath @($summary)
 
 Write-Host "Raw results: $rawPath"

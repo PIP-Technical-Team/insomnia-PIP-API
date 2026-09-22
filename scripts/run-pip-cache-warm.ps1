@@ -232,8 +232,11 @@ if ($GenerateOnly -and $Execute) {
 }
 
 $target = Get-Target $Environment
-if ($target.Name -notlike "* - Gateway") {
+if ($target.Name -notlike "* - Gateway" -and $target.Name -ne "Local") {
     throw "Cache warming supports gateway environments only. '$($target.Name)' is a direct API target and cannot warm the gateway cache."
+}
+if ($target.Name -eq "Local" -and $Execute -and $Limit -eq 0) {
+    throw "Local execution is only for a small verification run. Specify -Limit before using -Execute."
 }
 $normalizedBaseUrl = Get-NormalizedBaseUrl $BaseUrl
 $knownBaseUrl = Get-NormalizedBaseUrl $target.BaseUrl
@@ -346,6 +349,8 @@ if ($sortedRows.Count -ne $expectedIterationRows -or $sortedRows.Count -eq 0) {
 
 $iterationDataPath = Join-Path $OutputDirectory "cache-warm-iterations-$timestamp.json"
 $resultPath = Join-Path $OutputDirectory "cache-warm-inso-$timestamp.json"
+$consolePath = Join-Path $OutputDirectory "cache-warm-console-$timestamp.log"
+$recordsPath = Join-Path $OutputDirectory "cache-warm-records-$timestamp.json"
 $manifestPath = Join-Path $OutputDirectory "cache-warm-manifest-$timestamp.json"
 Write-JsonFile -Path $iterationDataPath -Value $sortedRows -AsArray
 
@@ -368,6 +373,8 @@ $manifest = [ordered]@{
     request_timeout_ms = $RequestTimeoutMs
     iteration_data = $iterationDataPath
     inso_output = if ($Execute) { $resultPath } else { $null }
+    console_output = if ($Execute) { $consolePath } else { $null }
+    compact_records = if ($Execute) { $recordsPath } else { $null }
 }
 Write-JsonFile -Path $manifestPath -Value $manifest -Compress
 
@@ -397,16 +404,23 @@ $arguments = @(
     "--delay-request", [string]$DelayMs,
     "--requestTimeout", [string]$RequestTimeoutMs,
     "--output", $resultPath,
-    "--acceptRisk",
     $workspaceId
 )
 
 Write-Host "Running cache warming for $($target.Name)..."
 $insoExitCode = 1
 $insoError = $null
+$insoOutput = @()
 try {
     $LASTEXITCODE = 0
-    & $insoCommand.Source @arguments
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $insoOutput = @(& $insoCommand.Source @arguments 2>&1 | ForEach-Object { $_.ToString() })
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $insoExitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
 }
 catch {
@@ -415,6 +429,46 @@ catch {
         $insoExitCode = [int]$LASTEXITCODE
     }
 }
+
+foreach ($line in $insoOutput) {
+    Write-Host $line
+}
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+[IO.File]::WriteAllLines($consolePath, [string[]]$insoOutput, $utf8WithoutBom)
+
+$compactRecords = New-Object System.Collections.Generic.List[object]
+$recordParseErrors = New-Object System.Collections.Generic.List[string]
+$recordPattern = "PIP_CACHE_WARM_RESULT\s+(\{.*\})"
+foreach ($line in $insoOutput) {
+    if ($line -match $recordPattern) {
+        try {
+            $record = $Matches[1] | ConvertFrom-Json
+            $compactRecords.Add([pscustomobject][ordered]@{
+                environment = $target.Name
+                environment_id = $target.Id
+                timestamp_utc = $record.timestampUtc
+                povline = $record.povline
+                ppp_version = $record.pppVersion
+                format = $record.format
+                release_version = $record.releaseVersion
+                resolved_version = $record.resolvedVersion
+                response_time_ms = $record.responseTime
+                status = $record.status
+                response_size = $record.responseSize
+                pipapi_cache = $record.pipapiCache
+                gateway_cache_signal = $record.gatewayCacheSignal
+            })
+        }
+        catch {
+            $recordParseErrors.Add($_.Exception.Message)
+        }
+    }
+}
+Write-JsonFile -Path $recordsPath -Value $compactRecords -AsArray
+
+$successfulRecords = @($compactRecords | Where-Object { [int]$_.status -eq 200 }).Count
+$errorRecords = @($compactRecords | Where-Object { [int]$_.status -ne 200 }).Count
+$missingRecords = [Math]::Max(0, $sortedRows.Count - $compactRecords.Count)
 
 $versionCheckError = $null
 $versionSetChanged = $false
@@ -433,6 +487,14 @@ $manifest["inso_exit_code"] = $insoExitCode
 $manifest["inso_error"] = $insoError
 $manifest["version_set_changed_during_run"] = $versionSetChanged
 $manifest["version_check_error"] = $versionCheckError
+$manifest["result_summary"] = [ordered]@{
+    expected_rows = $sortedRows.Count
+    recorded_rows = $compactRecords.Count
+    successful_rows = $successfulRecords
+    error_rows = $errorRecords
+    missing_rows = $missingRecords
+    parse_errors = @($recordParseErrors)
+}
 $manifest["status"] = if ($null -ne $versionCheckError) {
     "version-check-failed"
 }
@@ -441,6 +503,9 @@ elseif ($versionSetChanged) {
 }
 elseif ($null -ne $insoError -or $insoExitCode -ne 0) {
     "inso-failed"
+}
+elseif ($recordParseErrors.Count -gt 0 -or $compactRecords.Count -ne $sortedRows.Count) {
+    "result-records-incomplete"
 }
 else {
     "completed"
@@ -461,6 +526,10 @@ if ($null -ne $insoError) {
 
 if ($insoExitCode -ne 0) {
     throw "Inso reported cache-warm failures (exit code $insoExitCode). Review '$resultPath' and '$manifestPath'."
+}
+
+if ($recordParseErrors.Count -gt 0 -or $compactRecords.Count -ne $sortedRows.Count) {
+    throw "Cache warming did not produce one valid compact result record per iteration. Review '$consolePath', '$recordsPath', and '$manifestPath'."
 }
 
 Write-Host "Cache warming completed. Manifest: $manifestPath"
