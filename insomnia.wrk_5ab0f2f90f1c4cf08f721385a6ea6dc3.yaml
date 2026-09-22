@@ -197,7 +197,7 @@ collection:
     meta:
       id: fld_3f40b490f9fe4776861207329443e521
       created: 1788297477000
-      modified: 1789852286322
+      modified: 1790077987782
       sortKey: -1788297476945
       description: Supported or intended public gateway surface. These checks also
         apply to Local and direct VMs.
@@ -206,7 +206,7 @@ collection:
         meta:
           id: fld_03326bc508714543bd0e6fd195f7e8b0
           created: 1788297477000
-          modified: 1789852193744
+          modified: 1790077170052
           sortKey: -1788297476967
           description: Bounded checks for homepage reference and chart data.
         children:
@@ -516,7 +516,7 @@ collection:
         meta:
           id: fld_55f64bb6fe1d446db943e9b2f51a7036
           created: 1788297477000
-          modified: 1789852194985
+          modified: 1790077176378
           sortKey: -1788297476959
           description: Bounded Country Profile indicators, charts, and JSON download.
         children:
@@ -720,7 +720,7 @@ collection:
         meta:
           id: fld_8baebc7766ee4b72976e5d481d93519a
           created: 1788297477000
-          modified: 1789852192559
+          modified: 1790077168184
           sortKey: -1788297476975
           description: API information, parameter metadata, auxiliary tables, and citation.
         children:
@@ -1099,7 +1099,7 @@ collection:
         meta:
           id: fld_a091777972e747ab80451a32237d5624
           created: 1788297477000
-          modified: 1789852286322
+          modified: 1790077166037
           sortKey: -1788297476987
           description: Bounded country and aggregate poverty scenarios plus supported
             serializers.
@@ -1654,7 +1654,7 @@ collection:
         meta:
           id: fld_a7250dc207364b5dbc2a5be79de8da7b
           created: 1788297477000
-          modified: 1789852191257
+          modified: 1790077166845
           sortKey: -1788297476982
           description: Grouped-distribution statistics, regression selection, and Lorenz
             output.
@@ -1948,7 +1948,7 @@ collection:
         meta:
           id: fld_b0511edfb8094b72a868427ba0bb5598
           created: 1788297477000
-          modified: 1789852194352
+          modified: 1790077589899
           sortKey: -1788297476963
           description: Bounded Poverty Calculator chart and aggregate feeds.
         children:
@@ -2168,11 +2168,160 @@ collection:
                 send: false
                 store: false
               rebuildPath: true
+          - url: "{{base_url}}/pc-regional-aggregates"
+            name: GET /pc-regional-aggregates - All countries and years
+            meta:
+              id: req_9a1cfe27ade44d609266bc7842d5c56c
+              created: 1790077339241
+              modified: 1790077484962
+              isPrivate: false
+              description: Gateway contract. Run this request on gateways, Local, and direct
+                VMs. Uses WLD, one year, and one poverty line. Asserts stable
+                regional fields.
+              sortKey: -1788297476963
+            method: GET
+            parameters:
+              - name: country
+                value: all
+                disabled: false
+              - name: year
+                value: all
+                disabled: false
+              - name: povline
+                value: "{{test_poverty_line}}"
+                disabled: false
+              - name: ppp_version
+                value: "{{ _.test_ppp_year }}"
+                description: ""
+                disabled: false
+            scripts:
+              afterResponse: >
+                insomnia.test("Status is 200", () => {
+                  insomnia.expect(insomnia.response.code).to.equal(200);
+                });
+
+                const contentTypeHeader = insomnia.response.headers.find(
+                  header => header.key.toLowerCase() === "content-type"
+                );
+
+                const contentType = contentTypeHeader ? contentTypeHeader.value
+                : undefined;
+
+                if (contentType) {
+                  insomnia.test("Content-Type is JSON", () => {
+                    insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+                  });
+                }
+
+                const body = insomnia.response.json();
+
+                insomnia.test("Response has no API error or timeout", () => {
+                  insomnia.expect(body && body.error).to.equal(undefined);
+                  if (body && !Array.isArray(body) && typeof body === "object") {
+                    insomnia.expect(body.ok).not.to.equal(false);
+                  }
+                });
+
+                insomnia.test("Response is an array", () => {
+                  insomnia.expect(body).to.be.an("array");
+                });
+
+                insomnia.test("Response contains data", () => {
+                  insomnia.expect(body).not.to.be.empty;
+                });
+
+                insomnia.test("Rows contain required fields", () => {
+                  insomnia.expect(body[0]).to.include.all.keys("region_code", "reporting_year", "poverty_line", "headcount", "reporting_pop", "pop_in_poverty");
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: false
+                store: false
+              rebuildPath: true
+          - url: "{{base_url}}/pc-charts"
+            name: GET /pc-charts - All countries and years
+            meta:
+              id: req_6052ad6d5c9c4a62b92f5811406ab2a6
+              created: 1790077538923
+              modified: 1790077585761
+              isPrivate: false
+              description: Gateway contract. Run this request on gateways, Local, and direct
+                VMs. Uses one country, survey year, and poverty line. Asserts
+                stable chart fields.
+              sortKey: -1788297476965.5
+            method: GET
+            parameters:
+              - name: country
+                value: all
+                disabled: false
+              - name: year
+                value: all
+                disabled: false
+              - name: povline
+                value: "{{test_poverty_line}}"
+                disabled: false
+              - name: ppp_version
+                value: "{{ _.test_ppp_year }}"
+                disabled: false
+              - name: fill_gaps
+                value: "false"
+                description: ""
+                disabled: false
+            scripts:
+              afterResponse: >
+                insomnia.test("Status is 200", () => {
+                  insomnia.expect(insomnia.response.code).to.equal(200);
+                });
+
+                const contentTypeHeader = insomnia.response.headers.find(
+                  header => header.key.toLowerCase() === "content-type"
+                );
+
+                const contentType = contentTypeHeader ? contentTypeHeader.value
+                : undefined;
+
+                if (contentType) {
+                  insomnia.test("Content-Type is JSON", () => {
+                    insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+                  });
+                }
+
+                const body = insomnia.response.json();
+
+                insomnia.test("Response has no API error or timeout", () => {
+                  insomnia.expect(body && body.error).to.equal(undefined);
+                  if (body && !Array.isArray(body) && typeof body === "object") {
+                    insomnia.expect(body.ok).not.to.equal(false);
+                  }
+                });
+
+                insomnia.test("Response is an array", () => {
+                  insomnia.expect(body).to.be.an("array");
+                });
+
+                insomnia.test("Response contains data", () => {
+                  insomnia.expect(body).not.to.be.empty;
+                });
+
+                insomnia.test("Rows contain required fields", () => {
+                  insomnia.expect(body[0]).to.include.all.keys("country_code", "reporting_year", "poverty_line", "headcount", "poverty_gap", "mean");
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: false
+                store: false
+              rebuildPath: true
       - name: 00 Smoke
         meta:
           id: fld_bf574077466b41efa91f2f0c299c44a8
           created: 1788297477000
-          modified: 1789852188413
+          modified: 1790077161145
           sortKey: -1788297476996
           description: Fast liveness, version, and bounded poverty checks for every target.
         children:
@@ -2240,7 +2389,7 @@ collection:
             meta:
               id: req_ec8583e7913149faa784afc98fb55058
               created: 1788297477000
-              modified: 1788297477000
+              modified: 1789853093157
               isPrivate: false
               description: Gateway contract. Run this request on gateways, Local, and direct
                 VMs. Asserts liveness JSON, status 200, and a non-empty
@@ -2379,7 +2528,7 @@ collection:
         meta:
           id: fld_e0f19d05426243db871d4467aba60af7
           created: 1788297477000
-          modified: 1789852192765
+          modified: 1790077168379
           sortKey: -1788297476973
           description: Public package version contract. Data and filesystem diagnostics
             are direct-server checks.
@@ -2445,7 +2594,7 @@ collection:
         meta:
           id: fld_e1c6019b1ca645d092717ad8ed82d749
           created: 1788297477000
-          modified: 1789852196554
+          modified: 1790077987782
           sortKey: -1788297476952
           description: Version, auxiliary, survey, and World-lineup data used by the
             frontend.
@@ -2820,11 +2969,130 @@ collection:
                 send: false
                 store: false
               rebuildPath: true
+          - url: "{{base_url}}/poverty-lines?ppp_version=2021"
+            name: GET /poverty-lines
+            meta:
+              id: req_73c2c11671d342488ed7a12d08c177b9
+              created: 1790077676402
+              modified: 1790077829534
+              isPrivate: false
+              description: Gateway contract. Run this request on gateways, Local, and direct
+                VMs. Asserts the stable nowcast year and tooltip fields.
+              sortKey: -1788297476952
+            method: GET
+            parameters:
+              - name: ppp_version
+                value: "{{ _.test_ppp_year }}"
+            scripts:
+              afterResponse: >
+                insomnia.test("Status is 200", () => {
+                  insomnia.expect(insomnia.response.code).to.equal(200);
+                });
+
+                const contentTypeHeader = insomnia.response.headers.find(
+                  header => header.key.toLowerCase() === "content-type"
+                );
+
+                const contentType = contentTypeHeader ? contentTypeHeader.value
+                : undefined;
+
+                if (contentType) {
+                  insomnia.test("Content-Type is JSON", () => {
+                    insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+                  });
+                }
+
+                const body = insomnia.response.json();
+
+                insomnia.test("Response has no API error or timeout", () => {
+                  insomnia.expect(body && body.error).to.equal(undefined);
+                  if (body && !Array.isArray(body) && typeof body === "object") {
+                    insomnia.expect(body.ok).not.to.equal(false);
+                  }
+                });
+
+                insomnia.test("Response is an array", () => {
+                  insomnia.expect(body).to.be.an("array");
+                });
+
+                insomnia.test("Response contains data", () => {
+                  insomnia.expect(body).not.to.be.empty;
+                });
+
+                insomnia.test("Rows contain required fields", () => {
+                  insomnia.expect(body[0]).to.include.all.keys("name", "poverty_line", "is_default", "is_visible");
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: false
+                store: false
+              rebuildPath: true
+          - url: "{{base_url}}/indicators"
+            name: GET /indicators
+            meta:
+              id: req_25f4ae3b10114839b22e685e988017fe
+              created: 1790077882919
+              modified: 1790077982634
+              isPrivate: false
+              description: Gateway contract. Run this request on gateways, Local, and direct
+                VMs. Asserts the stable nowcast year and tooltip fields.
+              sortKey: -1788297476952.5
+            method: GET
+            scripts:
+              afterResponse: >
+                insomnia.test("Status is 200", () => {
+                  insomnia.expect(insomnia.response.code).to.equal(200);
+                });
+
+                const contentTypeHeader = insomnia.response.headers.find(
+                  header => header.key.toLowerCase() === "content-type"
+                );
+
+                const contentType = contentTypeHeader ? contentTypeHeader.value
+                : undefined;
+
+                if (contentType) {
+                  insomnia.test("Content-Type is JSON", () => {
+                    insomnia.expect(contentType.toLowerCase()).to.match(/^application\/json/);
+                  });
+                }
+
+                const body = insomnia.response.json();
+
+                insomnia.test("Response has no API error or timeout", () => {
+                  insomnia.expect(body && body.error).to.equal(undefined);
+                  if (body && !Array.isArray(body) && typeof body === "object") {
+                    insomnia.expect(body.ok).not.to.equal(false);
+                  }
+                });
+
+                insomnia.test("Response is an array", () => {
+                  insomnia.expect(body).to.be.an("array");
+                });
+
+                insomnia.test("Response contains data", () => {
+                  insomnia.expect(body).not.to.be.empty;
+                });
+
+                insomnia.test("Rows contain required fields", () => {
+                  insomnia.expect(body[0]).to.include.all.keys("page", "wdi_code", "indicator_code", "indicator_name", "scale_data", "scale_display", "scale_factor", "number_of_decimals", "indicator_definition_short", "indicator_definition_long", "key_indicator_template", "category", "is_sensitive_to_povline", "symbol", "sort_order", "pip_sort_order", "tags", "from_year", "to_year");
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: false
+                store: false
+              rebuildPath: true
       - name: 90 Validation Errors
         meta:
           id: fld_fb4becf0050f47d2900b47fc09fc164d
           created: 1788297477000
-          modified: 1789852197235
+          modified: 1790077179494
           sortKey: -1788297476946
           description: Safe invalid-input checks. Accept any client-error status from 400
             through 499.
@@ -3028,7 +3296,7 @@ collection:
     meta:
       id: fld_536bbd4bd50f42d3ae995f7b2e1144e3
       created: 1788297477000
-      modified: 1789594504171
+      modified: 1789998501049
       sortKey: -1788297476931
       description: Package routes that current gateways do not publish. Run only on
         Local and direct VMs.
@@ -3467,7 +3735,7 @@ collection:
         meta:
           id: fld_b545a21d2f594421959dde3118d59232
           created: 1788297477000
-          modified: 1789594457343
+          modified: 1789998501049
           sortKey: -1788297476942
           description: Direct-server version and valid-year checks.
         children:
@@ -3598,7 +3866,7 @@ cookieJar:
   meta:
     id: jar_d6787c1d1f83410da3b3b87da727eb43
     created: 1763074119729
-    modified: 1789852286320
+    modified: 1790077987780
   cookies:
     - id: 59602392-8210-442e-bad5-754adb26eec1
       key: pipscoreapiqa.worldbank.orgCORS
@@ -3667,12 +3935,13 @@ environments:
   meta:
     id: env_8fb90fcdaf164905a88a748c87ed3a16
     created: 1788297477000
-    modified: 1789852286321
+    modified: 1790077987782
     isPrivate: false
   data:
     base_url: http://127.0.0.1:8080/api/v1
     test_country: AGO
     test_survey_year: "2018"
+    test_ppp_year: "2021"
     test_interpolated_year: "2012"
     test_group_year: "2018"
     test_poverty_line: "3"
@@ -3698,7 +3967,7 @@ environments:
       meta:
         id: env_2f404d334d4e45198c75ec339a192e39
         created: 1788297477000
-        modified: 1788297477000
+        modified: 1789998515664
         isPrivate: false
         sortKey: 0
       data:
@@ -3716,7 +3985,7 @@ environments:
       meta:
         id: env_308cc551c5734a96ada11d1fb8d4d3e3
         created: 1788297477000
-        modified: 1789594450907
+        modified: 1790002165996
         isPrivate: false
         sortKey: 0
       data:
@@ -3725,7 +3994,7 @@ environments:
       meta:
         id: env_5e40f167f49741538f2b81b7bccbcccb
         created: 1788297477000
-        modified: 1788297477000
+        modified: 1790077987781
         isPrivate: false
         sortKey: 0
       data:
@@ -3734,7 +4003,7 @@ environments:
       meta:
         id: env_7475b41083f0406d92dae9d626575ba1
         created: 1788297477000
-        modified: 1788297477000
+        modified: 1790077066420
         isPrivate: false
         sortKey: 0
       data:
@@ -3743,7 +4012,7 @@ environments:
       meta:
         id: env_8d2cf0336c2645f4b50264332d73d608
         created: 1788297477000
-        modified: 1789419921247
+        modified: 1789994263492
         isPrivate: false
         sortKey: 0
       data:
@@ -3752,7 +4021,7 @@ environments:
       meta:
         id: env_b631255845de4a989b6f4a9f8fcc0b91
         created: 1788297477000
-        modified: 1789852286321
+        modified: 1789986327722
         isPrivate: false
         sortKey: 0
       data:
@@ -3761,7 +4030,7 @@ environments:
       meta:
         id: env_c5b2808184034d7b8952b8209650e5e4
         created: 1788297477000
-        modified: 1789594504170
+        modified: 1789993998270
         isPrivate: false
         sortKey: 0
       data:
@@ -3770,7 +4039,7 @@ environments:
       meta:
         id: env_f4c749f676be4e47aff9803eee5d1bb3
         created: 1788297477000
-        modified: 1788297477000
+        modified: 1790077026350
         isPrivate: false
         sortKey: 0
       data:
