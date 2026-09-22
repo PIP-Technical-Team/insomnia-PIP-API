@@ -8,7 +8,7 @@ The PIP API package has 39 active explicit GET routes. This suite covers the 36 
 
 Use the `MAC_test` branch for this work. The branch contains the Insomnia collection YAML file and both PowerShell scripts. Pull this branch before you open Insomnia or run a script:
 
-```powershell
+```sh
 git switch MAC_test
 git pull --ff-only origin MAC_test
 ```
@@ -22,19 +22,35 @@ There are two supported ways to run requests. Choose one for each activity:
 
 The PowerShell scripts do not replace the Insomnia collection. They tell Inso CLI to open the same local YAML file and run selected requests from it. You do not need to open Insomnia when you run a PowerShell script, but you must first pull the branch because Inso reads the collection file from this repository.
 
-Install the following tools on the Windows computer that can reach the target API:
+macOS Terminal normally uses the `zsh` shell. It is a command-line program, but it is not PowerShell. You can use `git`, `npm`, and `inso` directly in `zsh`. The `.ps1` helper scripts require PowerShell, which runs on macOS as the `pwsh` command.
+
+Install the following tools on the computer that can reach the target API:
 
 1. Git, to pull the `MAC_test` branch.
 2. PowerShell, to run the `.ps1` scripts.
 3. Node.js and npm, to install Inso CLI.
 4. Insomnia desktop application only if you want the graphical interface.
 
-Install and verify Inso CLI once:
+On macOS, install PowerShell once with Homebrew, then verify it:
 
-```powershell
+```sh
+brew install --cask powershell
+pwsh --version
+```
+
+Install and verify Inso CLI once from Terminal:
+
+```sh
 npm install --global insomnia-inso
 inso --version
 ```
+
+If `npm install` reports a network or proxy error, the installation did not finish. Reconnect to the required network or configure the required npm proxy, then run the same command again.
+
+To run a `.ps1` script on macOS, choose one method:
+
+1. Start PowerShell by typing `pwsh` in Terminal. The prompt changes to start with `PS`. Copy the PowerShell examples from this README into that prompt. Type `exit` to return to `zsh`.
+2. Stay in `zsh` and start a script with `pwsh -File ./scripts/<script-name>.ps1`. Examples later in this README show both forms.
 
 Run every command below from the repository root, the folder that contains `README.md` and `insomnia.wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3.yaml`.
 
@@ -180,10 +196,12 @@ This is the recommended method. Run the PowerShell script, not the YAML file. Th
 
 Use these steps for a safe first check with a running local API:
 
-1. Open PowerShell in the repository root.
+1. Open macOS Terminal in the repository root.
 2. Confirm Inso is installed with `inso --version`.
-3. Run the two-row Local command below.
-4. Read the file paths printed by the script. They are below `results/cache-warm/` and are intentionally not committed to Git.
+3. Start PowerShell by typing `pwsh` and pressing Enter.
+4. Confirm the prompt starts with `PS`.
+5. Run the two-row Local command below.
+6. Read the file paths printed by the script. They are below `results/cache-warm/` and are intentionally not committed to Git.
 
 Use `-GenerateOnly` when you want to create data but send no expensive `/pip` request. Use `-Execute` only when you intend to send requests. For gateway warming, use a gateway environment such as `Prod - Gateway`, never a direct VM environment.
 
@@ -204,6 +222,12 @@ With a local API running, verify iteration substitution and both formats with on
   -Environment "Local" `
   -Limit 2 `
   -Execute
+```
+
+The equivalent one-line command for macOS `zsh` is:
+
+```sh
+pwsh -File ./scripts/run-pip-cache-warm.ps1 -BaseUrl "http://127.0.0.1:8080/api/v1" -Environment "Local" -Limit 2 -Execute
 ```
 
 Run the complete matrix only after the required release and ITS confirmation:
@@ -260,16 +284,24 @@ This is the recommended method. The script uses Inso to run the six requests in 
 Use these steps for the first run:
 
 1. Start the Local API if you are testing `Local`. Use an intranet Windows computer for Dev, QA, or Prod.
-2. Open PowerShell in the repository root.
+2. Open macOS Terminal in the repository root.
 3. Confirm Inso is installed with `inso --version`.
-4. Run the small Local command below.
-5. Read the `Raw results`, `Summary CSV`, and `Summary JSON` paths printed by the script.
+4. Start PowerShell by typing `pwsh` and pressing Enter.
+5. Confirm the prompt starts with `PS`.
+6. Run the small Local command below.
+7. Read the `Raw results`, `Summary CSV`, and `Summary JSON` paths printed by the script.
 
 ```powershell
 .\scripts\run-pip-performance.ps1 `
   -Environment "Local" `
   -WarmIterations 1 `
   -DelayMs 250
+```
+
+The equivalent one-line command for macOS `zsh` is:
+
+```sh
+pwsh -File ./scripts/run-pip-performance.ps1 -Environment "Local" -WarmIterations 1 -DelayMs 250
 ```
 
 Use the multi-target command below only after the small Local run works. It sends the expensive all-country requests once for each target and warm iteration.
