@@ -1,12 +1,12 @@
 # PIP API Tests
 
-This repository contains one Insomnia collection for the current PIP API HTTP contract. The collection file is used in two ways: the Insomnia desktop application provides a graphical interface, and the PowerShell scripts use the Inso command-line tool to run the same collection without opening the graphical interface.
+This repository contains an Insomnia collection for API contract checks and a small Python script for manual cache warming. Cache warming does not require Insomnia, Inso CLI, PowerShell, Node.js, or npm.
 
 The PIP API package has 39 active explicit GET routes. This suite covers the 36 safe routes. It automates 35 routes and keeps `cache-get` as a manual request because it needs a live cache key. The destructive `cache-reset`, `cache-delete`, and `duckdb-reset` routes are intentionally absent.
 
 ## Start Here
 
-Use the `MAC_test` branch for this work. The branch contains the Insomnia collection YAML file and both PowerShell scripts. Pull this branch before you open Insomnia or run a script:
+Use the `MAC_test` branch for this work. Pull it before you open Insomnia or run the cache warmer:
 
 ```sh
 git switch MAC_test
@@ -17,40 +17,22 @@ There are two supported ways to run requests. Choose one for each activity:
 
 | Activity | What you use | When to use it |
 | --- | --- | --- |
-| Browse requests or run a small manual check | Insomnia desktop application | You want to select requests and see responses in a graphical interface. |
-| Run performance samples or save cache-warming results | PowerShell script and Inso CLI | You want a repeatable run and files under `results/`. |
+| Browse requests or run a contract check | Insomnia desktop application | You want to select requests and inspect responses. |
+| Warm gateway cache entries | `python3 scripts/warm_pip_cache.py` | You want one repeatable command with no extra packages. |
 
-The PowerShell scripts do not replace the Insomnia collection. They tell Inso CLI to open the same local YAML file and run selected requests from it. You do not need to open Insomnia when you run a PowerShell script, but you must first pull the branch because Inso reads the collection file from this repository.
-
-macOS Terminal normally uses the `zsh` shell. It is a command-line program, but it is not PowerShell. You can use `git`, `npm`, and `inso` directly in `zsh`. The `.ps1` helper scripts require PowerShell, which runs on macOS as the `pwsh` command.
-
-Install the following tools on the computer that can reach the target API:
-
-1. Git, to pull the `MAC_test` branch.
-2. PowerShell, to run the `.ps1` scripts.
-3. Node.js and npm, to install Inso CLI.
-4. Insomnia desktop application only if you want the graphical interface.
-
-On macOS, install PowerShell once with Homebrew, then verify it:
+The Python warmer is independent of the Insomnia collection. It calls the API directly and does not create result files. Python 3.9 or later is the only runtime it needs. On macOS or Linux, confirm it with:
 
 ```sh
-brew install --cask powershell
-pwsh --version
+python3 --version
 ```
 
-Install and verify Inso CLI once from Terminal:
+On Windows PowerShell, use the Python launcher:
 
-```sh
-npm install --global insomnia-inso
-inso --version
+```powershell
+py -3 --version
 ```
 
-If `npm install` reports a network or proxy error, the installation did not finish. Reconnect to the required network or configure the required npm proxy, then run the same command again.
-
-To run a `.ps1` script on macOS, choose one method:
-
-1. Start PowerShell by typing `pwsh` in Terminal. The prompt changes to start with `PS`. Copy the PowerShell examples from this README into that prompt. Type `exit` to return to `zsh`.
-2. Stay in `zsh` and start a script with `pwsh -File ./scripts/<script-name>.ps1`. Examples later in this README show both forms.
+The script prints each HTTP result, response size, and elapsed time to the terminal. These timings are basic end-to-end measurements, not load-test results.
 
 Run every command below from the repository root, the folder that contains `README.md` and `insomnia.wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3.yaml`.
 
@@ -93,7 +75,7 @@ Normal requests omit `version`, `release_version`, `ppp_version`, and `identity`
 
 ## Open In Insomnia
 
-Use this path only when you want the graphical interface. You do not need to do these steps before running a PowerShell script.
+Use this path only when you want the graphical interface. You do not need to open Insomnia before running the Python cache warmer.
 
 1. Pull `MAC_test` with the commands in **Start Here**.
 2. Open Insomnia.
@@ -145,9 +127,9 @@ Use the intranet Windows computer for Dev, QA, and Prod gateways and VMs.
 
 The PowerShell runner can do these target sequences automatically.
 
-## Optional Inso Runner
+## Optional Inso Contract-Test Runner
 
-Install Inso CLI on the intranet Windows computer:
+This section applies only to the existing `run-pip-tests.ps1` contract-test helper. The Python cache warmer does not use Inso or PowerShell. Install Inso CLI on the intranet Windows computer only when you need this contract-test runner:
 
 ```powershell
 npm install --global insomnia-inso
@@ -169,167 +151,105 @@ For Full, the runner sends only `00 Gateway Contract` to gateways. It sends `00 
 
 ## Manual Cache Warming
 
-Cache warming is a manual release task. It is not a load test, a schedule, a deployment hook, or a cache-reset tool. ITS owns the complete gateway cache reset. Do not start a gateway warm run until the release is healthy on all intended API VMs and ITS explicitly confirms the gateway reset.
+Cache warming is a manual release task. The script does not reset a cache and does not run concurrently. ITS owns the gateway reset. Run the full production matrix only after the release is healthy and ITS confirms the reset.
 
-There are two cache layers:
+The `pip` scenario dynamically performs these steps:
 
-| Layer | Owner and signal | Meaning |
-| --- | --- | --- |
-| VM/API response cache | PIP API; `X-Pipapi-Cache: HIT|MISS` when present | API-origin cache state only |
-| Gateway cache | ITS | Gateway-specific trace, log, or header when ITS provides one |
+1. Calls `/versions` and selects the latest `PROD` version for every PPP year.
+2. Calls `/poverty-lines?version=<full-version>` for each selected version.
+3. Uses each canonical poverty-line `name` exactly as the API returns it.
+4. Sends one JSON request and one CSV request for every PPP year and poverty line.
 
-The gateway can replay `X-Pipapi-Cache`, so this header is not gateway hit or miss evidence. The first gateway run after an ITS-confirmed reset is a `gateway-empty first pass`. Immediate identical runs are `presumed gateway hits` until ITS provides a reliable gateway signal. For a direct VM, the first phase is a `VM first-pass`; it measures only the VM/API path and its cache state.
-
-The gateway key requires this exact parameter set:
+The warmed `/pip` URL contains only these gateway cache-key parameters:
 
 ```text
 country=all&year=all&povline=<canonical value>&ppp_version=<year>&format=<json|csv>
 ```
 
-Do not add `fill_gaps`, `version`, `release_version`, or other default parameters. JSON and CSV are separate entries. The cache warmer calls `/versions`, selects the latest `PROD` release for each PPP year, then calls `/poverty-lines?version=<full version>`. It uses each returned canonical `name` exactly as supplied and creates both JSON and CSV iteration rows.
+Do not add `fill_gaps`, `version`, `release_version`, or other default parameters to the warming URL.
 
-Use Insomnia/Inso 13.2 or a compatible version with Collection Runner iteration-data support. The script writes only iteration data, a manifest, Inso output, and compact summaries below the ignored `results/` directory. It does not save response bodies, cookies, gateway traces, or secrets.
+### 1. Preview Two Requests
 
-### Run Cache Warming From PowerShell
+Run this safe command first. It performs discovery and prints two URLs, but it does not send the `/pip` requests.
 
-This is the recommended method. Run the PowerShell script, not the YAML file. The script first asks the selected API for its current versions and poverty lines. It then creates the iteration data, and, only with `-Execute`, tells Inso to send the cache-warming requests.
-
-Use these steps for a safe first check with a running local API:
-
-1. Open macOS Terminal in the repository root.
-2. Confirm Inso is installed with `inso --version`.
-3. Start PowerShell by typing `pwsh` and pressing Enter.
-4. Confirm the prompt starts with `PS`.
-5. Run the two-row Local command below.
-6. Read the file paths printed by the script. They are below `results/cache-warm/` and are intentionally not committed to Git.
-
-Use `-GenerateOnly` when you want to create data but send no expensive `/pip` request. Use `-Execute` only when you intend to send requests. For gateway warming, use a gateway environment such as `Prod - Gateway`, never a direct VM environment.
-
-Preview the selected versions and data before any expensive request:
-
-```powershell
-.\scripts\run-pip-cache-warm.ps1 `
-  -BaseUrl "https://api.worldbank.org/pip/v1" `
-  -Environment "Prod - Gateway" `
-  -GenerateOnly -Limit 2
-```
-
-With a local API running, verify iteration substitution and both formats with only two rows:
-
-```powershell
-.\scripts\run-pip-cache-warm.ps1 `
-  -BaseUrl "http://127.0.0.1:8080/api/v1" `
-  -Environment "Local" `
-  -Limit 2 `
-  -Execute
-```
-
-The equivalent one-line command for macOS `zsh` is:
+macOS or Linux:
 
 ```sh
-pwsh -File ./scripts/run-pip-cache-warm.ps1 -BaseUrl "http://127.0.0.1:8080/api/v1" -Environment "Local" -Limit 2 -Execute
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --limit 2
 ```
 
-Run the complete matrix only after the required release and ITS confirmation:
+Windows PowerShell:
 
 ```powershell
-.\scripts\run-pip-cache-warm.ps1 `
-  -BaseUrl "https://api.worldbank.org/pip/v1" `
-  -Environment "Prod - Gateway" `
-  -DelayMs 250 `
-  -Execute
+py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --limit 2
 ```
 
-`-Execute` is required for every request run. The script accepts existing gateway environments and permits Local only with `-Limit` for a small implementation check; it rejects direct VM environments because they cannot warm a gateway cache. `-Limit` limits generated iteration rows for a safe smoke run. The script validates the environment and base URL, empty discovery responses, missing `PROD` versions, empty poverty-line lists, duplicate rows, expected row count, output location, compact result count, and version-set changes during the run. It does not use `--bail`, so a run continues after one failed row. If the gateway returns `429` or shows saturation, stop and increase the delay. Do not add concurrency.
+### 2. Send Two Test Requests
 
-The cache runner uses an Inso command equivalent to this command. It deliberately omits `--includeFullData`.
-
-```powershell
-inso --ci -w .\insomnia.wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3.yaml run collection `
-  --item req_b5d107e4c8394a62bf1e7530d8962ca4 `
-  --env "Prod - Gateway" `
-  --iteration-data .\results\cache-warm\cache-warm-iterations-<timestamp>.json `
-  --delay-request 250 `
-  --requestTimeout 180000 `
-  --output .\results\cache-warm\cache-warm-inso-<timestamp>.json `
-  wrk_5ab0f2f90f1c4cf08f721385a6ea6dc3
-```
-
-### Run Cache Warming In Insomnia
-
-Use this method only when you want to inspect a small run in the graphical interface. You still use the PowerShell script once to generate the required iteration data.
-
-1. Run the `-GenerateOnly -Limit 2` command above. It prints an `Iteration data:` file path.
-2. Open Insomnia by following **Open In Insomnia**.
-3. Select the target environment that matches the `-BaseUrl` used by the script.
-4. Open Collection Runner.
-5. Select only `30 Caching / Warm GET /pip - all country and year`.
-6. Use **Upload Data** and select the generated iteration JSON file.
-7. Confirm the displayed iteration count, then start the run.
-
-The graphical run does not create the same saved result artifacts as the PowerShell workflow. Use PowerShell for an auditable release run.
-
-Do not use a pre-request loop with `insomnia.sendRequest` for this work. It has weak per-iteration reporting and restart behavior. Request chaining passes response values but does not control an iteration-data loop. A plugin, separate requests for every key, and a Postman/Newman migration add no useful ability here.
-
-ITS reports a nine-day gateway policy, but the effective retention after the API `Cache-Control: public, max-age=7200` boundary is not confirmed. ITS must trace one warmed URL immediately, shortly before two hours, and shortly after two hours. Until that test is complete, do not state that one warm run lasts nine days or that a weekly run is sufficient.
-
-## Manual Performance Measurement
-
-`20 Performance` provides sequential end-to-end client latency samples for `/health-check`, `/versions`, bounded `/pip` JSON and CSV, and expensive all-country/all-year `/pip` JSON and CSV. It is not a controlled concurrency, throughput, saturation, or capacity test. Do not calculate requests per second as a service throughput metric.
-
-### Run Performance From PowerShell
-
-This is the recommended method. The script uses Inso to run the six requests in `20 Performance`; you do not open Insomnia first. It checks that all selected targets report the same current `PROD` versions before it sends performance requests. It then saves raw records and CSV/JSON summaries below `results/performance/`.
-
-Use these steps for the first run:
-
-1. Start the Local API if you are testing `Local`. Use an intranet Windows computer for Dev, QA, or Prod.
-2. Open macOS Terminal in the repository root.
-3. Confirm Inso is installed with `inso --version`.
-4. Start PowerShell by typing `pwsh` and pressing Enter.
-5. Confirm the prompt starts with `PS`.
-6. Run the small Local command below.
-7. Read the `Raw results`, `Summary CSV`, and `Summary JSON` paths printed by the script.
-
-```powershell
-.\scripts\run-pip-performance.ps1 `
-  -Environment "Local" `
-  -WarmIterations 1 `
-  -DelayMs 250
-```
-
-The equivalent one-line command for macOS `zsh` is:
+Add `--execute` only when you intend to send the requests:
 
 ```sh
-pwsh -File ./scripts/run-pip-performance.ps1 -Environment "Local" -WarmIterations 1 -DelayMs 250
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --limit 2 \
+  --execute
 ```
 
-Use the multi-target command below only after the small Local run works. It sends the expensive all-country requests once for each target and warm iteration.
-
-Use the same client computer, network path, Inso version, delay, timeout, cookie policy, request order, and data version for all targets in one comparison. The performance script calls `/versions` first and stops when the selected targets expose different latest `PROD` versions. Alternate target order between benchmark sessions to reduce time and order bias.
+Windows PowerShell:
 
 ```powershell
-.\scripts\run-pip-performance.ps1 `
-  -Environment "Prod - Gateway","Prod - VM1","Prod - VM2","Prod - VM3" `
-  -WarmIterations 5 `
-  -DelayMs 250
+py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --limit 2 --execute
 ```
 
-The runner labels the first gateway artifact `gateway-empty first-pass` and the first direct artifact `VM first-pass`, then writes the requested number of `presumed-warm` artifacts. Use the gateway-empty label only when ITS confirmed the reset before the run. The runner records Inso version and settings, raw output, request console records, and a CSV/JSON summary. The summary groups target, endpoint, format, and phase, then reports count, errors, min, median/p50, p90, p95, and max latency. It keeps JSON and CSV separate.
+### 3. Warm The Complete Cache Matrix
 
-### Run Performance In Insomnia
+Remove `--limit` only after the two-request test succeeds and ITS confirms the gateway reset:
 
-You can run the same requests in the graphical interface, but Insomnia does not create the PowerShell script's saved summary files.
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --delay-ms 250 \
+  --timeout 180 \
+  --execute
+```
 
-1. Open Insomnia by following **Open In Insomnia**.
-2. Select one target environment.
-3. Open Collection Runner.
-4. Select only `20 Performance`.
-5. Start one run.
+Windows PowerShell:
 
-Do not select `20 Performance` together with Smoke, Full, or cache warming.
+```powershell
+py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --delay-ms 250 --timeout 180 --execute
+```
 
-Do not mix first-pass and warm records in one percentile. A gateway result includes DNS, network, TLS, and gateway effects. A direct VM uses intranet HTTP. Their difference is end-to-end client latency, not a pure gateway cost. No latency pass/fail thresholds exist until the team defines a baseline and service objective.
+The script continues after an individual request failure and exits with status `1` if any request failed. It reads each complete response so that the gateway can cache it, but it does not save response bodies or create manifests.
+
+Each result includes basic elapsed time and response size:
+
+```text
+[12/74] 200 ppp=2021 povline=3.00 format=json 1.42s 184220 bytes
+```
+
+Run the same command again immediately for a simple presumed-warm latency comparison. This is not a throughput or load test.
+
+### Warm One Exact URL
+
+Use `--url` for an endpoint or parameter combination that does not need dynamic discovery:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --url "https://api.worldbank.org/pip/v1/example?x=1&y=2" \
+  --execute
+```
+
+Repeat `--url` to warm more than one exact URL. The script sends the URL exactly as supplied.
+
+On Windows PowerShell, use the same options after `py -3 scripts/warm_pip_cache.py`.
+
+### Add A Reusable Endpoint Scenario
+
+For a repeated endpoint matrix, add one request-builder function to `scripts/warm_pip_cache.py`, then register it in `SCENARIOS`. The builder must return the exact URLs used by the real client. Do not guess optional parameters because every different parameter set can create a different gateway cache entry.
+
+Use the Insomnia `30 Caching` request only for optional graphical inspection. The Python script is the primary cache-warming method.
 
 ## Manual Cache Lookup
 
@@ -382,7 +302,9 @@ For a normal release, run Dev before QA and run QA before Prod.
 
 | Problem | Action |
 | --- | --- |
-| Inso CLI is missing | Run `npm install --global insomnia-inso`, open a new PowerShell session, and run `inso --version`. |
+| Python is missing or too old | Install Python 3.9 or later. Run `python3 --version` on macOS/Linux or `py -3 --version` on Windows. |
+| The cache warmer reports `Discovery failed` | Confirm the `--base-url`, network access, and the target's `/versions` response. |
+| Inso CLI is missing for contract tests | On the intranet Windows computer, run `npm install --global insomnia-inso`, open a new PowerShell session, and run `inso --version`. |
 | An intranet host is unreachable | Use the intranet computer, connect to the required network, and confirm World Bank DNS resolution. |
 | The explicit version request returns a client error | Confirm the target's `/versions` response, then override only `test_data_version` in that target sub-environment. |
 | A response has status 200 and `ok: false` | Treat it as an API request timeout. Reduce the selected scope or inspect the target logs. Do not weaken the assertion. |
