@@ -153,129 +153,169 @@ For Full, the runner sends only `00 Gateway Contract` to gateways. It sends `00 
 
 Cache warming is a manual release task. The script does not reset a cache and does not run concurrently. ITS owns the gateway reset. Run the full production matrix only after the release is healthy and ITS confirms the reset.
 
-The `pip` scenario dynamically performs these steps:
+The script discovers the latest `PROD` releases for PPP years `2017` and `2021`. It ignores all other PPP years, including `2011`. With `--all-poverty-lines`, it reads the canonical poverty lines separately from both supported releases. With `--all-countries`, it reads all country codes from each release's `countries` auxiliary table.
 
-1. Calls `/versions` and selects the latest `PROD` version for every PPP year.
-2. Calls `/poverty-lines?version=<full-version>` for each selected version.
-3. Uses each canonical poverty-line `name` exactly as the API returns it.
-4. Sends one JSON request and one CSV request for every PPP year and poverty line.
+Supported formats depend on the endpoint:
 
-Other scenarios cover the page endpoints already defined in the Insomnia collection:
-
-| Scenario | Endpoints |
+| Function | Endpoints and formats |
 | --- | --- |
-| `homepage` | `/hp-stacked`, `/hp-countries`, `/decomposition-vars`, `/poverty-lines`, `/indicators` |
-| `country-profile` | `/cp-download` with JSON format, `/cp-key-indicators`, `/cp-charts` |
-| `pages` | All Homepage and Country Profiles endpoints |
-| `all` | The dynamic `/pip` matrix plus all Homepage and Country Profiles endpoints |
+| Poverty and inequality statistics | `/pip`: JSON, CSV, RDS |
+| Grouped poverty and inequality statistics | `/pip-grp`: JSON, CSV, RDS |
+| Poverty Calculator | `/pc-charts`, `/pc-regional-aggregates`: JSON only |
+| Homepage | Homepage feeds: JSON only |
+| Country Profiles | All profile feeds: default JSON only |
 
-Page scenarios are bounded. They require at least one explicit `--country` and `--povline`. Repeat either option to add values. The script creates every requested country and poverty-line combination. It never assumes `country=all` for these endpoints.
+The gateway does not publish the always-CSV Poverty Calculator download route, so the warmer does not call it.
 
-The warmed `/pip` URL contains only these gateway cache-key parameters:
+Every generated matrix uses this priority order: PPP `2021` before `2017`; lower poverty lines before higher poverty lines; JSON, then CSV, then RDS. For `/pip`, `/pip-grp`, and the Poverty Calculator, every `fill_gaps=true` request runs immediately before its matching `fill_gaps=false` request. `fill_gaps` is part of the `/pip` cache key, so both values must be warmed. The current `/pip-grp` server implementation normalizes this parameter away, so its two variants currently warm the same backend key. This places the most important `2021` JSON requests with the lowest poverty lines first and the least important `2017` RDS requests with the highest poverty lines last.
 
-```text
-country=all&year=all&povline=<canonical value>&ppp_version=<year>&format=<json|csv>
-```
+### Safe Preview Pattern
 
-Do not add `fill_gaps`, `version`, `release_version`, or other default parameters to the warming URL.
-
-### 1. Preview Two Requests
-
-Run this safe command first. It performs discovery and prints two URLs, but it does not send the `/pip` requests.
-
-macOS or Linux:
+Always start with this two-request preview. It performs metadata discovery and prints the first two URLs, but it does not send cacheable requests:
 
 ```sh
 python3 scripts/warm_pip_cache.py \
   --base-url https://api.worldbank.org/pip/v1 \
+  --scenario pip \
   --limit 2
 ```
 
-Windows PowerShell:
-
-```powershell
-py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --limit 2
-```
-
-### 2. Send Two Test Requests
-
-Add `--execute` only when you intend to send the requests:
+When the preview looks correct, send the same two cache requests:
 
 ```sh
 python3 scripts/warm_pip_cache.py \
   --base-url https://api.worldbank.org/pip/v1 \
+  --scenario pip \
   --limit 2 \
   --execute
 ```
 
-Windows PowerShell:
+The first two requests are the lowest canonical poverty line for PPP `2021`, JSON format, with `fill_gaps=true` and then `fill_gaps=false`. This is the smallest useful cache-warming check.
 
-```powershell
-py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --limit 2 --execute
-```
-
-### 3. Warm The Complete `/pip` Cache Matrix
-
-Remove `--limit` only after the two-request test succeeds and ITS confirms the gateway reset:
+For a large combined matrix, use a ten-request preview first:
 
 ```sh
 python3 scripts/warm_pip_cache.py \
   --base-url https://api.worldbank.org/pip/v1 \
+  --scenario all \
+  --all-countries \
+  --all-poverty-lines \
+  --limit 10
+```
+
+Review the total `Prepared` count. Full all-country matrices can be very large. Add `--execute` only after the limited preview or limited execution succeeds and ITS confirms the gateway reset.
+
+### Poverty And Inequality Statistics
+
+This command warms `/pip` for all canonical poverty lines, JSON/CSV/RDS, PPP years `2017` and `2021`, and both `fill_gaps=true` and `fill_gaps=false` cache keys:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario pip \
   --delay-ms 250 \
   --timeout 180 \
   --execute
 ```
 
-Windows PowerShell:
+### Grouped Poverty And Inequality Statistics
 
-```powershell
-py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --delay-ms 250 --timeout 180 --execute
-```
-
-### Warm Homepage And Country Profiles
-
-Preview all eight page request shapes for one country and poverty line:
+This command warms `/pip-grp` immediately after the primary `/pip` scenario. It uses `country=all`, `year=all`, and `group_by=wb` for every canonical poverty line, PPP years `2021` then `2017`, JSON/CSV/RDS, and both requested `fill_gaps` query values:
 
 ```sh
 python3 scripts/warm_pip_cache.py \
   --base-url https://api.worldbank.org/pip/v1 \
-  --scenario pages \
-  --country AGO \
-  --povline 3
-```
-
-Add `--execute` after reviewing the printed URLs. To include more values, repeat the options:
-
-```sh
-python3 scripts/warm_pip_cache.py \
-  --base-url https://api.worldbank.org/pip/v1 \
-  --scenario pages \
-  --country AGO \
-  --country IDN \
-  --povline 3 \
-  --povline 6.55 \
+  --scenario pip-grp \
+  --all-poverty-lines \
+  --delay-ms 250 \
+  --timeout 180 \
   --execute
 ```
 
-This example warms both countries at both poverty lines. The three global Homepage reference endpoints are sent only once.
+`pip-grp` currently normalizes `fill_gaps` away inside the API, so its true and false URLs do not create separate backend cache keys. The warmer still sends both forms as requested.
 
-On Windows PowerShell, use one line:
+### Poverty Calculator
 
-```powershell
-py -3 scripts/warm_pip_cache.py --base-url https://api.worldbank.org/pip/v1 --scenario pages --country AGO --povline 3 --execute
+This command warms all supported Poverty Calculator gateway feeds for every canonical poverty line and both PPP years. These feeds are JSON-only. The script automatically generates both `/pc-charts` cache keys for every PPP year and poverty line: `fill_gaps=true` first, then `fill_gaps=false`. Do not add a `--fill-gaps` command option.
+
+Preview the two `fill_gaps` values for one poverty line:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario poverty-calculator \
+  --povline 0.05 \
+  --limit 3
 ```
 
-Use `--scenario all` with the same `--country` and `--povline` options when one run must include `/pip`, Homepage, and Country Profiles. The dynamic `/pip` matrix can make this a large run. Preview with `--limit 10`, review the `Prepared` count, and remove the limit only after the limited run succeeds.
-
-The script continues after an individual request failure and exits with status `1` if any request failed. It reads each complete response so that the gateway can cache it, but it does not save response bodies or create manifests.
-
-Each result includes basic elapsed time and response size:
+The preview prints these requests in order:
 
 ```text
-[12/74] 200 ppp=2021 povline=3.00 format=json 1.42s 184220 bytes
+/pc-charts?...&fill_gaps=true
+/pc-charts?...&fill_gaps=false
+/pc-regional-aggregates?...
 ```
 
-Run the same command again immediately for a simple presumed-warm latency comparison. This is not a throughput or load test.
+Run the full Poverty Calculator matrix with:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario poverty-calculator \
+  --all-poverty-lines \
+  --delay-ms 250 \
+  --timeout 180 \
+  --execute
+```
+
+### Homepage
+
+This command warms all Homepage feeds for every discovered country, every canonical poverty line, and both PPP years. Homepage feeds are JSON-only:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario homepage \
+  --all-countries \
+  --all-poverty-lines \
+  --delay-ms 250 \
+  --timeout 180 \
+  --execute
+```
+
+### Country Profiles
+
+This command warms every discovered country at every canonical poverty line and both PPP years. All Country Profiles requests use their default JSON response:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario country-profile \
+  --all-countries \
+  --all-poverty-lines \
+  --delay-ms 250 \
+  --timeout 180 \
+  --execute
+```
+
+### Everything In One Run
+
+This command runs `/pip`, then `/pip-grp`, then Poverty Calculator, Homepage, and Country Profiles:
+
+```sh
+python3 scripts/warm_pip_cache.py \
+  --base-url https://api.worldbank.org/pip/v1 \
+  --scenario all \
+  --all-countries \
+  --all-poverty-lines \
+  --delay-ms 250 \
+  --timeout 180 \
+  --execute
+```
+
+On Windows PowerShell, replace `python3` with `py -3` and put each command on one line.
+
+The script continues after an individual request failure and exits with status `1` if any request failed. It reads each complete response so the gateway can cache it, but it does not save response bodies or create manifests. Each output line includes basic elapsed time and response size. An immediate second run gives a simple presumed-warm comparison; it is not a throughput or load test.
 
 ### Warm One Exact URL
 
@@ -293,7 +333,7 @@ On Windows PowerShell, use the same options after `py -3 scripts/warm_pip_cache.
 
 ### Add A Reusable Endpoint Scenario
 
-For another bounded page endpoint, add its path and ordered parameter names to `PAGE_ENDPOINTS` in `scripts/warm_pip_cache.py`. Add custom discovery logic to `build_scenario_plan` only when the endpoint matrix cannot be expressed with explicit countries and poverty lines. Use the exact URLs sent by the real client. Do not guess optional parameters because every different parameter set can create a different gateway cache entry.
+For another bounded page endpoint, add its path and ordered parameter names to `PAGE_ENDPOINTS` in `scripts/warm_pip_cache.py`. Add custom discovery logic to `build_scenario_plan` only when the endpoint matrix cannot use the existing country and poverty-line discovery. Use the exact URLs sent by the real client. Do not guess optional parameters because every different parameter set can create a different gateway cache entry.
 
 Use the Insomnia `30 Caching` request only for optional graphical inspection. The Python script is the primary cache-warming method.
 

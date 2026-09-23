@@ -19,11 +19,16 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
+SUPPORTED_PPP_VERSIONS = ("2021", "2017")
+SUPPORTED_DATA_FORMATS = ("json", "csv", "rds")
+
+
 @dataclass(frozen=True)
 class WarmRequest:
     url: str
     label: str
     response_format: Optional[str] = None
+    required_csv_header: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,16 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=[],
         help="Poverty line for page scenarios. Repeat for more poverty lines.",
+    )
+    parser.add_argument(
+        "--all-countries",
+        action="store_true",
+        help="Discover and use every country for page scenarios.",
+    )
+    parser.add_argument(
+        "--all-poverty-lines",
+        action="store_true",
+        help="Discover and use every poverty line for calculator and page scenarios.",
     )
     parser.add_argument(
         "--url",
@@ -94,14 +109,36 @@ def parse_args() -> argparse.Namespace:
         parser.error("--base-url is required unless --url is used")
     if args.url and args.scenario is not None:
         parser.error("--scenario cannot be used with --url")
-    if args.url and (args.country or args.povline):
-        parser.error("--country and --povline cannot be used with --url")
+    if args.url and (
+        args.country
+        or args.povline
+        or args.all_countries
+        or args.all_poverty_lines
+    ):
+        parser.error("country and poverty-line options cannot be used with --url")
     args.scenario = args.scenario or "pip"
-    if args.scenario == "pip" and (args.country or args.povline):
-        parser.error("--country and --povline apply only to page scenarios")
-    if args.scenario in PAGE_SCENARIOS and (not args.country or not args.povline):
+    if args.country and args.all_countries:
+        parser.error("use either --country or --all-countries, not both")
+    if args.povline and args.all_poverty_lines:
+        parser.error("use either --povline or --all-poverty-lines, not both")
+    if args.scenario == "pip" and (
+        args.country
+        or args.povline
+        or args.all_countries
+        or args.all_poverty_lines
+    ):
+        parser.error("country and poverty-line options do not apply to --scenario pip")
+    if args.scenario in COUNTRY_SCENARIOS and not (
+        args.country or args.all_countries
+    ):
         parser.error(
-            f"--scenario {args.scenario} requires at least one --country and --povline"
+            f"--scenario {args.scenario} requires --country or --all-countries"
+        )
+    if args.scenario in POVERTY_LINE_SCENARIOS and not (
+        args.povline or args.all_poverty_lines
+    ):
+        parser.error(
+            f"--scenario {args.scenario} requires --povline or --all-poverty-lines"
         )
 
     return args
@@ -205,6 +242,8 @@ def latest_prod_versions(
         if required_text(row, "identity", "/versions row") != "PROD":
             continue
         ppp_version = required_text(row, "ppp_version", "/versions PROD row")
+        if ppp_version not in SUPPORTED_PPP_VERSIONS:
+            continue
         release_version = required_text(row, "release_version", "/versions PROD row")
         resolved_version = required_text(row, "version", "/versions PROD row")
         candidate = (
@@ -216,8 +255,14 @@ def latest_prod_versions(
         if current is None or (candidate[0], candidate[2]) > (current[0], current[2]):
             latest_by_ppp[ppp_version] = candidate
 
-    if not latest_by_ppp:
-        raise ValueError("/versions returned no PROD versions")
+    missing_ppp_versions = [
+        version for version in SUPPORTED_PPP_VERSIONS if version not in latest_by_ppp
+    ]
+    if missing_ppp_versions:
+        raise ValueError(
+            "/versions returned no PROD version for supported PPP year(s): "
+            + ", ".join(missing_ppp_versions)
+        )
 
     return latest_by_ppp
 
@@ -225,73 +270,64 @@ def latest_prod_versions(
 def version_snapshot(
     versions: dict[str, tuple[Decimal, str, str]]
 ) -> tuple[str, ...]:
-    return tuple(
-        f"{ppp_version}|{release_version}|{resolved_version}"
-        for ppp_version, (_, release_version, resolved_version) in sorted(
-            versions.items(), key=lambda item: decimal_value(item[0], "ppp_version")
-        )
-    )
+    snapshot = []
+    for ppp_version in SUPPORTED_PPP_VERSIONS:
+        _, release_version, resolved_version = versions[ppp_version]
+        snapshot.append(f"{ppp_version}|{release_version}|{resolved_version}")
+    return tuple(snapshot)
 
 
-def build_pip_plan(base_url: str, timeout: float) -> WarmPlan:
-    latest_by_ppp = latest_prod_versions(base_url, timeout)
-    initial_snapshot = version_snapshot(latest_by_ppp)
-    requests: list[WarmRequest] = []
-    seen: set[tuple[str, str, str]] = set()
-    for ppp_version in sorted(
-        latest_by_ppp, key=lambda value: decimal_value(value, "ppp_version")
-    ):
-        _, _, resolved_version = latest_by_ppp[ppp_version]
+def discover_poverty_lines(
+    base_url: str,
+    timeout: float,
+    versions: dict[str, tuple[Decimal, str, str]],
+) -> dict[str, list[str]]:
+    discovered: dict[str, list[str]] = {}
+    for ppp_version in SUPPORTED_PPP_VERSIONS:
+        _, _, resolved_version = versions[ppp_version]
         query = urlencode((("version", resolved_version),))
-        poverty_lines = response_rows(
+        rows = response_rows(
             get_json(f"{base_url}/poverty-lines?{query}", timeout),
             f"/poverty-lines for {resolved_version}",
         )
         names = {
             required_text(row, "name", f"/poverty-lines row for {resolved_version}")
-            for row in poverty_lines
+            for row in rows
         }
-
-        for povline in sorted(
+        discovered[ppp_version] = sorted(
             names, key=lambda value: (decimal_value(value, "poverty-line name"), value)
-        ):
-            for response_format in ("json", "csv"):
-                key = (ppp_version, povline, response_format)
-                if key in seen:
-                    continue
-                seen.add(key)
-                cache_query = urlencode(
-                    (
-                        ("country", "all"),
-                        ("year", "all"),
-                        ("povline", povline),
-                        ("ppp_version", ppp_version),
-                        ("format", response_format),
-                    )
-                )
-                requests.append(
-                    WarmRequest(
-                        url=f"{base_url}/pip?{cache_query}",
-                        label=(
-                            f"ppp={ppp_version} povline={povline} "
-                            f"format={response_format}"
-                        ),
-                        response_format=response_format,
-                    )
-                )
-
-    def verify_versions() -> None:
-        final_snapshot = version_snapshot(latest_prod_versions(base_url, timeout))
-        if final_snapshot != initial_snapshot:
-            raise ValueError("the selected PROD versions changed during the run")
-
-    return WarmPlan(requests=requests, verify=verify_versions)
+        )
+    return discovered
 
 
-def json_request(
+def discover_countries(
+    base_url: str,
+    timeout: float,
+    versions: dict[str, tuple[Decimal, str, str]],
+) -> dict[str, list[str]]:
+    discovered: dict[str, list[str]] = {}
+    for ppp_version in SUPPORTED_PPP_VERSIONS:
+        _, _, resolved_version = versions[ppp_version]
+        query = urlencode((("table", "countries"), ("version", resolved_version)))
+        rows = response_rows(
+            get_json(f"{base_url}/aux?{query}", timeout),
+            f"/aux countries for {resolved_version}",
+        )
+        discovered[ppp_version] = sorted(
+            {
+                required_text(row, "country_code", "/aux countries row")
+                for row in rows
+            }
+        )
+    return discovered
+
+
+def request_item(
     base_url: str,
     path: str,
     parameters: tuple[tuple[str, str], ...] = (),
+    response_format: Optional[str] = "json",
+    required_csv_header: tuple[str, ...] = (),
 ) -> WarmRequest:
     query = f"?{urlencode(parameters)}" if parameters else ""
     label_parameters = " ".join(f"{key}={value}" for key, value in parameters)
@@ -301,50 +337,196 @@ def json_request(
     return WarmRequest(
         url=f"{base_url}{path}{query}",
         label=label,
-        response_format="json",
+        response_format=response_format,
+        required_csv_header=required_csv_header,
     )
+
+
+def pip_requests(
+    base_url: str,
+    poverty_lines: dict[str, list[str]],
+) -> list[WarmRequest]:
+    requests: list[WarmRequest] = []
+    for ppp_version in SUPPORTED_PPP_VERSIONS:
+        for povline in poverty_lines[ppp_version]:
+            for fill_gaps in ("true", "false"):
+                for response_format in SUPPORTED_DATA_FORMATS:
+                    requests.append(
+                        request_item(
+                            base_url,
+                            "/pip",
+                            (
+                                ("country", "all"),
+                                ("year", "all"),
+                                ("povline", povline),
+                                ("ppp_version", ppp_version),
+                                ("fill_gaps", fill_gaps),
+                                ("format", response_format),
+                            ),
+                            response_format=response_format,
+                            required_csv_header=(
+                                "country_code",
+                                "reporting_year",
+                                "poverty_line",
+                                "headcount",
+                                "poverty_gap",
+                                "mean",
+                            ),
+                        )
+                    )
+    return requests
+
+
+def pip_group_requests(
+    base_url: str,
+    poverty_lines: dict[str, list[str]],
+) -> list[WarmRequest]:
+    requests: list[WarmRequest] = []
+    for ppp_version in SUPPORTED_PPP_VERSIONS:
+        for povline in poverty_lines[ppp_version]:
+            for fill_gaps in ("true", "false"):
+                for response_format in SUPPORTED_DATA_FORMATS:
+                    requests.append(
+                        request_item(
+                            base_url,
+                            "/pip-grp",
+                            (
+                                ("country", "all"),
+                                ("year", "all"),
+                                ("povline", povline),
+                                ("ppp_version", ppp_version),
+                                ("group_by", "wb"),
+                                ("fill_gaps", fill_gaps),
+                                ("format", response_format),
+                            ),
+                            response_format=response_format,
+                        )
+                    )
+    return requests
 
 
 PAGE_ENDPOINTS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     "homepage": (
-        ("/hp-stacked", ("povline",)),
-        ("/hp-countries", ("country", "povline")),
-        ("/decomposition-vars", ()),
-        ("/poverty-lines", ()),
-        ("/indicators", ()),
+        ("/hp-stacked", ("povline", "ppp_version")),
+        ("/hp-countries", ("country", "povline", "ppp_version")),
+        ("/decomposition-vars", ("ppp_version",)),
+        ("/poverty-lines", ("ppp_version",)),
+        ("/indicators", ("ppp_version",)),
     ),
     "country-profile": (
-        ("/cp-download", ("country", "povline", "format")),
-        ("/cp-key-indicators", ("country", "povline")),
-        ("/cp-charts", ("country", "povline")),
+        ("/cp-download", ("country", "povline", "ppp_version")),
+        ("/cp-key-indicators", ("country", "povline", "ppp_version")),
+        ("/cp-charts", ("country", "povline", "ppp_version")),
     ),
 }
 
-SCENARIOS = ("pip", "homepage", "country-profile", "pages", "all")
-PAGE_SCENARIOS = {"homepage", "country-profile", "pages", "all"}
+SCENARIOS = (
+    "pip",
+    "pip-grp",
+    "poverty-calculator",
+    "homepage",
+    "country-profile",
+    "pages",
+    "all",
+)
+COUNTRY_SCENARIOS = {"homepage", "country-profile", "pages", "all"}
+POVERTY_LINE_SCENARIOS = {
+    "pip-grp",
+    "poverty-calculator",
+    "homepage",
+    "country-profile",
+    "pages",
+    "all",
+}
 
 
 def page_requests(
     base_url: str,
     groups: tuple[str, ...],
-    countries: list[str],
-    poverty_lines: list[str],
+    countries: dict[str, list[str]],
+    poverty_lines: dict[str, list[str]],
 ) -> list[WarmRequest]:
-    parameter_values = {
-        "country": countries,
-        "povline": poverty_lines,
-        "format": ["json"],
-    }
     requests: list[WarmRequest] = []
     for group in groups:
         for path, parameter_names in PAGE_ENDPOINTS[group]:
-            combinations = itertools.product(
-                *(parameter_values[name] for name in parameter_names)
+            ppp_versions = (
+                SUPPORTED_PPP_VERSIONS if "ppp_version" in parameter_names else (None,)
             )
-            for values in combinations:
-                requests.append(
-                    json_request(base_url, path, tuple(zip(parameter_names, values)))
+            for ppp_version in ppp_versions:
+                parameter_values = {
+                    "country": countries.get(ppp_version or "", []),
+                    "povline": poverty_lines.get(ppp_version or "", []),
+                    "ppp_version": [ppp_version] if ppp_version else [],
+                    "format": list(SUPPORTED_DATA_FORMATS),
+                }
+                if "country" in parameter_names and "povline" in parameter_names:
+                    parameter_sets = (
+                        tuple(
+                            (name, values[name]) for name in parameter_names
+                        )
+                        for povline in parameter_values["povline"]
+                        for country in parameter_values["country"]
+                        for response_format in (
+                            parameter_values["format"]
+                            if "format" in parameter_names
+                            else ("json",)
+                        )
+                        for values in (
+                            {
+                                "country": country,
+                                "povline": povline,
+                                "ppp_version": ppp_version,
+                                "format": response_format,
+                            },
+                        )
+                    )
+                else:
+                    parameter_sets = (
+                        tuple(zip(parameter_names, values))
+                        for values in itertools.product(
+                            *(parameter_values[name] for name in parameter_names)
+                        )
+                    )
+                for parameters in parameter_sets:
+                    response_format = dict(parameters).get("format", "json")
+                    requests.append(
+                        request_item(
+                            base_url,
+                            path,
+                            parameters,
+                            response_format=response_format,
+                        )
+                    )
+    return requests
+
+
+def poverty_calculator_requests(
+    base_url: str, poverty_lines: dict[str, list[str]]
+) -> list[WarmRequest]:
+    requests: list[WarmRequest] = []
+    for ppp_version in SUPPORTED_PPP_VERSIONS:
+        for povline in poverty_lines[ppp_version]:
+            common = (
+                ("country", "all"),
+                ("year", "all"),
+                ("povline", povline),
+                ("ppp_version", ppp_version),
+            )
+            requests.extend(
+                (
+                    request_item(
+                        base_url,
+                        "/pc-charts",
+                        common + (("fill_gaps", "true"),),
+                    ),
+                    request_item(
+                        base_url,
+                        "/pc-charts",
+                        common + (("fill_gaps", "false"),),
+                    ),
+                    request_item(base_url, "/pc-regional-aggregates", common),
                 )
+            )
     return requests
 
 
@@ -354,34 +536,50 @@ def build_scenario_plan(
     timeout: float,
     countries: list[str],
     poverty_lines: list[str],
+    all_countries: bool,
+    all_poverty_lines: bool,
 ) -> WarmPlan:
-    requests: list[WarmRequest] = []
-    verify: Optional[Callable[[], None]] = None
+    versions = latest_prod_versions(base_url, timeout)
+    initial_snapshot = version_snapshot(versions)
+    if all_poverty_lines or scenario in ("pip", "pip-grp"):
+        poverty_lines_by_ppp = discover_poverty_lines(base_url, timeout, versions)
+    else:
+        poverty_lines_by_ppp = {
+            ppp_version: poverty_lines for ppp_version in SUPPORTED_PPP_VERSIONS
+        }
+    if all_countries:
+        countries_by_ppp = discover_countries(base_url, timeout, versions)
+    else:
+        countries_by_ppp = {
+            ppp_version: countries for ppp_version in SUPPORTED_PPP_VERSIONS
+        }
 
+    requests: list[WarmRequest] = []
     if scenario in ("pip", "all"):
-        pip_plan = build_pip_plan(base_url, timeout)
-        requests.extend(pip_plan.requests)
-        verify = pip_plan.verify
+        requests.extend(pip_requests(base_url, poverty_lines_by_ppp))
+    if scenario in ("pip-grp", "all"):
+        requests.extend(pip_group_requests(base_url, poverty_lines_by_ppp))
+    if scenario in ("poverty-calculator", "all"):
+        requests.extend(
+            poverty_calculator_requests(base_url, poverty_lines_by_ppp)
+        )
 
     groups: tuple[str, ...] = ()
     if scenario in ("homepage", "pages", "all"):
         groups += ("homepage",)
     if scenario in ("country-profile", "pages", "all"):
         groups += ("country-profile",)
-    requests.extend(page_requests(base_url, groups, countries, poverty_lines))
+    requests.extend(
+        page_requests(base_url, groups, countries_by_ppp, poverty_lines_by_ppp)
+    )
 
-    if verify is None:
-        initial_snapshot = version_snapshot(latest_prod_versions(base_url, timeout))
-
-        def verify_versions() -> None:
-            final_snapshot = version_snapshot(latest_prod_versions(base_url, timeout))
-            if final_snapshot != initial_snapshot:
-                raise ValueError("the selected PROD versions changed during the run")
-
-        verify = verify_versions
+    def verify_versions() -> None:
+        final_snapshot = version_snapshot(latest_prod_versions(base_url, timeout))
+        if final_snapshot != initial_snapshot:
+            raise ValueError("the selected PROD versions changed during the run")
 
     unique_requests = list({request.url: request for request in requests}.values())
-    return WarmPlan(requests=unique_requests, verify=verify)
+    return WarmPlan(requests=unique_requests, verify=verify_versions)
 
 
 def send_request(item: WarmRequest, timeout: float) -> tuple[int, int, float]:
@@ -422,18 +620,15 @@ def send_request(item: WarmRequest, timeout: float) -> tuple[int, int, float]:
         if header:
             header[0] = header[0].lstrip("\ufeff")
         first_data_row = next(rows, [])
-        required_header = {
-            "country_code",
-            "reporting_year",
-            "poverty_line",
-            "headcount",
-            "poverty_gap",
-            "mean",
-        }
-        if not required_header.issubset(header):
+        if item.required_csv_header and not set(item.required_csv_header).issubset(
+            header
+        ):
             raise ValueError("CSV response does not contain the required header")
         if not first_data_row:
             raise ValueError("CSV response does not contain a data row")
+
+    if item.response_format == "rds" and content_type != "application/rds":
+        raise ValueError(f"expected application/rds, received {content_type}")
 
     return status, len(body), time.perf_counter() - started
 
@@ -458,6 +653,8 @@ def main() -> int:
                 args.timeout,
                 countries,
                 poverty_lines,
+                args.all_countries,
+                args.all_poverty_lines,
             )
     except (
         HTTPError,
@@ -471,6 +668,7 @@ def main() -> int:
         print(f"Discovery failed: {error}", file=sys.stderr)
         return 1
 
+    total_requests = len(plan.requests)
     requests = plan.requests
     if args.limit is not None:
         requests = requests[: args.limit]
@@ -478,7 +676,14 @@ def main() -> int:
         print("No cache-warming requests were generated.", file=sys.stderr)
         return 1
 
-    print(f"Prepared {len(requests)} request(s).", flush=True)
+    if len(requests) == total_requests:
+        print(f"Prepared {total_requests} request(s).", flush=True)
+    else:
+        print(
+            f"Prepared {total_requests} request(s); selected the first "
+            f"{len(requests)} because of --limit.",
+            flush=True,
+        )
     if not args.execute:
         for index, item in enumerate(requests, start=1):
             print(f"[{index}/{len(requests)}] {item.url}")
